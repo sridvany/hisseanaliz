@@ -308,7 +308,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                                       mode='markers', marker=dict(symbol='triangle-down', size=10, color='#ff1744'),
                                       name='Bear Div', showlegend=False), row=2, col=1)
 
-    fig.update_layout(template='plotly_white', height=900,
+    fig.update_layout(template='plotly_white', height=1200,
                       xaxis_rangeslider_visible=False, barmode='stack',
                       title=f"<b>{ticker}</b> Teknik Analizi")
     return fig
