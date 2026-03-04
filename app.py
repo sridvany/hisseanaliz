@@ -38,36 +38,74 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
 
     # KAMA
     if show_kama:
-        df['KAMA'] = ta.kama(df['Close'], length=k_len)
+        try:
+            kama_result = ta.kama(df['Close'], length=k_len)
+            if kama_result is not None:
+                df['KAMA'] = kama_result
+            else:
+                show_kama = False
+        except Exception as e:
+            st.warning(f"KAMA hatası: {e}")
+            show_kama = False
 
     # SuperTrend
     if show_supertrend:
-        sti = ta.supertrend(df['High'], df['Low'], df['Close'], length=10, multiplier=s_mult)
-        df['ST_Line'], df['ST_Dir'] = sti.iloc[:, 0], sti.iloc[:, 1]
-        df['Buy'] = (df['ST_Dir'] == 1) & (df['ST_Dir'].shift(1) == -1)
-        df['Sell'] = (df['ST_Dir'] == -1) & (df['ST_Dir'].shift(1) == 1)
+        try:
+            sti = ta.supertrend(df['High'], df['Low'], df['Close'], length=10, multiplier=s_mult)
+            if sti is not None and hasattr(sti, 'iloc'):
+                df['ST_Line'], df['ST_Dir'] = sti.iloc[:, 0], sti.iloc[:, 1]
+                df['Buy'] = (df['ST_Dir'] == 1) & (df['ST_Dir'].shift(1) == -1)
+                df['Sell'] = (df['ST_Dir'] == -1) & (df['ST_Dir'].shift(1) == 1)
+            else:
+                show_supertrend = False
+        except Exception as e:
+            st.warning(f"SuperTrend hatası: {e}")
+            show_supertrend = False
 
     # Stoch RSI
     if show_stochrsi:
-        srsi = ta.stochrsi(df['Close'], length=srsi_len, rsi_length=srsi_len, k=3, d=3)
-        df['stoch_k'], df['stoch_d'] = srsi.iloc[:, 0], srsi.iloc[:, 1]
-        df['Cross_Up'] = (df['stoch_k'] > df['stoch_d']) & (df['stoch_k'].shift(1) <= df['stoch_d'].shift(1))
-        df['Cross_Down'] = (df['stoch_k'] < df['stoch_d']) & (df['stoch_k'].shift(1) >= df['stoch_d'].shift(1))
+        try:
+            srsi = ta.stochrsi(df['Close'], length=srsi_len, rsi_length=srsi_len, k=3, d=3)
+            if srsi is not None and hasattr(srsi, 'iloc'):
+                df['stoch_k'], df['stoch_d'] = srsi.iloc[:, 0], srsi.iloc[:, 1]
+                df['Cross_Up'] = (df['stoch_k'] > df['stoch_d']) & (df['stoch_k'].shift(1) <= df['stoch_d'].shift(1))
+                df['Cross_Down'] = (df['stoch_k'] < df['stoch_d']) & (df['stoch_k'].shift(1) >= df['stoch_d'].shift(1))
+            else:
+                show_stochrsi = False
+        except Exception as e:
+            st.warning(f"Stoch RSI hatası: {e}")
+            show_stochrsi = False
 
     # SMA
     if show_sma:
-        df['SMA'] = ta.sma(df['Close'], length=sma_len)
+        try:
+            sma_result = ta.sma(df['Close'], length=sma_len)
+            if sma_result is not None:
+                df['SMA'] = sma_result
+            else:
+                show_sma = False
+        except Exception as e:
+            st.warning(f"SMA hatası: {e}")
+            show_sma = False
 
     # Bollinger Bands
     if show_bb:
-        bbands = ta.bbands(df['Close'], length=bb_len, std=bb_std)
-        for c in bbands.columns:
-            if c.startswith('BBU'):
-                df['BB_Upper'] = bbands[c]
-            elif c.startswith('BBM'):
-                df['BB_Mid'] = bbands[c]
-            elif c.startswith('BBL'):
-                df['BB_Lower'] = bbands[c]
+        try:
+            bbands = ta.bbands(df['Close'], length=bb_len, std=bb_std)
+            if bbands is not None and hasattr(bbands, 'columns'):
+                for c in bbands.columns:
+                    if c.startswith('BBU'):
+                        df['BB_Upper'] = bbands[c]
+                    elif c.startswith('BBM'):
+                        df['BB_Mid'] = bbands[c]
+                    elif c.startswith('BBL'):
+                        df['BB_Lower'] = bbands[c]
+            else:
+                st.warning("Bollinger Bands hesaplanamadı (veri yetersiz olabilir).")
+                show_bb = False
+        except Exception as e:
+            st.warning(f"Bollinger Bands hatası: {e}")
+            show_bb = False
 
     # Ichimoku
     if show_ichimoku:
