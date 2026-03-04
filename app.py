@@ -146,9 +146,9 @@ else:
     * **Döviz / Emtia:** `EURUSD=X`, `GC=F` (Altın), `CL=F` (Petrol)
 
     ---
-    *yatırım tavsiyesi içermez...*
-    *sridvany.streamlit.app*
+    *uygulama yatırım tavsiyesi içermez.tradingview gibi sitelerde aylık 50-100 dolar arası maliyeti olan bir analiz ücretsiz olarak sunar.*
     """)
+
 
 
 
