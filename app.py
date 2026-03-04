@@ -129,15 +129,18 @@ else:
     * **VRVP (Hacim Profili):** Sağdaki barlar paranın en çok hangi fiyat seviyesinde maliyetlendiğini gösterir.Değerini 100 yaparsan sağdaki barlar çok daha detaylı hale gelir.
     * **Fibonacci Seviyeleri:** Fiyatın matematiksel olarak destek bulabileceği %23.6, %38.2 ve %50 bölgelerini gösterir.
 
-    #### Şunlardan birini seçin: "15m", "1h", "8h", "1d". Seçilen zaman birimine göre maksimum geriye gidecek süreler
-    #1m - 7 gün
-    #2m-5m-15m-30m-90m - 60gün
-    #1h - 730 gün
-    #8h - 60 gün
-    #1d - sınırsız
-    #1w - sınırsız
+    #### ⏱ Zaman Dilimi ve Geçmiş Veri Limitleri
+    * **Seçenekler:** `15m`, `1h`, `8h`, `1d` arasından birini seçin.
+    * **Maksimum Geriye Dönük Süreler:**
+    *   · **1m:** 7 gün
+    *   · **2m / 5m / 15m / 30m / 90m:** 60 gün
+    *   · **1h:** 730 gün
+    *   · **8h:** 60 gün
+    *   · **1d:** Sınırsız
+    *   · **1w:** Sınırsız
 
     ---
     *Veriler yfinance üzerinden anlık çekilir. 15m periyot için son 60 gün sınırı mevcuttur.*
     """)
+
 
