@@ -146,8 +146,9 @@ else:
     * **Döviz / Emtia:** `EURUSD=X`, `GC=F` (Altın), `CL=F` (Petrol)
 
     ---
-    *uygulama yatırım tavsiyesi içermez.tradingview gibi sitelerde aylık 50-100 dolar arası maliyeti olan bir analiz ücretsiz olarak sunar.*
+    *uygulama yatırım tavsiyesi içermez. tradingview gibi sitelerde aylık 50-100 dolar arası maliyeti olan bir analizi ücretsiz olarak sunar.*
     """)
+
 
 
 
