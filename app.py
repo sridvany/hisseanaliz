@@ -374,11 +374,11 @@ if st.sidebar.button("Analizi Başlat"):
         if fig:
             st.plotly_chart(fig, use_container_width=True)
 else:
-    st.info("Analiz yapmak için sol paneldeki 'Analizi Başlat' butonuna tıklayın. Varlık sembolünü bilmiyorsanız gemini'ye yfinance -varlık- tickerı yazın. Uygulama yatırım tavsiyesi içermez. Ücretsizdir.")
+    st.info("Analiz yapmak için sol paneldeki 'Analizi Başlat' butonuna tıklayın. Varlık sembolünü bilmiyorsanız gemini'ye yfinance .... tickerı nedir yazın. Uygulama yatırım tavsiyesi içermez. Ücretsizdir")
 
     st.markdown("""
     ---
-    ### 📖 Analiz ve Strateji Kılavuzu
+    ### 📖 Teknik Analiz Klavuzu
 
     #### 🚀 Sinyaller ve Oklar
     * **Büyük Üçgenler (AL/SAT):** SuperTrend indikatörünün ana trend onay sinyalleridir.
@@ -439,3 +439,4 @@ else:
 
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
+
