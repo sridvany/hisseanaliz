@@ -147,7 +147,9 @@ else:
 
     ---
     *yatırım tavsiyesi içermez...*
+    *sridvany.streamlit.app*
     """)
+
 
 
 
