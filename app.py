@@ -67,13 +67,45 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
 
     # Ichimoku
     if show_ichimoku:
-        ichi_result = ta.ichimoku(df['High'], df['Low'], df['Close'])
-        ichi_df = ichi_result[0]
-        df['Tenkan'] = ichi_df['ITS_9']
-        df['Kijun'] = ichi_df['IKS_26']
-        df['Senkou_A'] = ichi_df['ISA_9']
-        df['Senkou_B'] = ichi_df['ISB_26']
-        df['Chikou'] = ichi_df['ICS_26']
+        try:
+            ichi_result = ta.ichimoku(df['High'], df['Low'], df['Close'])
+            # tuple ise ilk elemanı al, değilse direkt kullan
+            if isinstance(ichi_result, tuple):
+                ichi_df = ichi_result[0]
+            else:
+                ichi_df = ichi_result
+            # None kontrolü
+            if ichi_df is None or not hasattr(ichi_df, 'columns'):
+                st.warning("Ichimoku hesaplanamadı (veri yetersiz olabilir).")
+                show_ichimoku = False
+            else:
+                cols = ichi_df.columns.tolist()
+                # iloc ile pozisyon bazlı erişim (en güvenli)
+                if len(cols) >= 5:
+                    df['Tenkan'] = ichi_df.iloc[:, 0]
+                    df['Kijun'] = ichi_df.iloc[:, 3]
+                    df['Senkou_A'] = ichi_df.iloc[:, 0]
+                    df['Senkou_B'] = ichi_df.iloc[:, 1]
+                    df['Chikou'] = ichi_df.iloc[:, 4]
+                    # İsim bazlı düzeltme (varsa)
+                    for c in cols:
+                        cl = c.upper()
+                        if 'ITS' in cl:
+                            df['Tenkan'] = ichi_df[c]
+                        elif 'IKS' in cl:
+                            df['Kijun'] = ichi_df[c]
+                        elif 'ISA' in cl:
+                            df['Senkou_A'] = ichi_df[c]
+                        elif 'ISB' in cl:
+                            df['Senkou_B'] = ichi_df[c]
+                        elif 'ICS' in cl:
+                            df['Chikou'] = ichi_df[c]
+                else:
+                    st.warning(f"Ichimoku beklenen 5 sütun yerine {len(cols)} sütun döndürdü: {cols}")
+                    show_ichimoku = False
+        except Exception as e:
+            st.warning(f"Ichimoku hesaplama hatası: {e}")
+            show_ichimoku = False
 
     # Fibonacci
     fib = {}
