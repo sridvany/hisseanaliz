@@ -147,8 +147,9 @@ else:
 
     ---
     *Uygulama yatırım tavsiyesi içermez. Ücretli online sitelerdeki analizleri ücretsiz olarak sunar.*
-    *salih rıdvan yılmaz*
+    * (Salih Rıdvan Yılmaz)*
     """)
+
 
 
 
