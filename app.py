@@ -85,7 +85,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
 # ============================================================
 st.sidebar.header("🛠️ Analiz Ayarları")
 
-Hisse = st.sidebar.text_input("Hisse Sembolü", value="THYAO.IS")
+Hisse = st.sidebar.text_input("Varlık Sembolü", value="GC=F")
 col1, col2 = st.sidebar.columns(2)
 Baslangic = col1.date_input("Başlangıç", value=datetime.now() - timedelta(days=60))
 Bitis = col2.date_input("Bitiş", value=datetime.now())
@@ -149,6 +149,7 @@ else:
     *Uygulama yatırım tavsiyesi içermez. Ücretli online sitelerdeki analizleri ücretsiz olarak sunar.*
     *(Salih Rıdvan Yılmaz)*
     """)
+
 
 
 
