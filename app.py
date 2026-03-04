@@ -62,18 +62,44 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
             st.warning(f"SuperTrend hatası: {e}")
             show_supertrend = False
 
-    # Stoch RSI
+    # Divergence Osilatörü (Momentum + Uyumsuzluk Tespiti)
     if show_stochrsi:
         try:
-            srsi = ta.stochrsi(df['Close'], length=srsi_len, rsi_length=srsi_len, k=3, d=3)
-            if srsi is not None and hasattr(srsi, 'iloc'):
-                df['stoch_k'], df['stoch_d'] = srsi.iloc[:, 0], srsi.iloc[:, 1]
-                df['Cross_Up'] = (df['stoch_k'] > df['stoch_d']) & (df['stoch_k'].shift(1) <= df['stoch_d'].shift(1))
-                df['Cross_Down'] = (df['stoch_k'] < df['stoch_d']) & (df['stoch_k'].shift(1) >= df['stoch_d'].shift(1))
+            import numpy as np
+            rsi_raw = ta.rsi(df['Close'], length=srsi_len)
+            if rsi_raw is not None:
+                df['Mom'] = rsi_raw - 50  # Sıfır merkezli momentum
+                df['Mom_Signal'] = ta.ema(df['Mom'], length=9)  # Sinyal çizgisi
+                df['Mom_Hist'] = df['Mom'] - df['Mom_Signal']  # Histogram
+
+                # Swing noktaları ile uyumsuzluk tespiti
+                lookback = 5
+                df['Swing_Low'] = df['Close'][(df['Close'].shift(lookback) > df['Close']) & (df['Close'].shift(-lookback) > df['Close'])]
+                df['Swing_High'] = df['Close'][(df['Close'].shift(lookback) < df['Close']) & (df['Close'].shift(-lookback) < df['Close'])]
+                df['Mom_Swing_Low'] = df['Mom'][(df['Mom'].shift(lookback) > df['Mom']) & (df['Mom'].shift(-lookback) > df['Mom'])]
+                df['Mom_Swing_High'] = df['Mom'][(df['Mom'].shift(lookback) < df['Mom']) & (df['Mom'].shift(-lookback) < df['Mom'])]
+
+                # Bullish Divergence: fiyat düşük dip, osilatör yüksek dip
+                df['Bull_Div'] = False
+                df['Bear_Div'] = False
+                swing_low_idx = df.dropna(subset=['Swing_Low']).index
+                swing_high_idx = df.dropna(subset=['Swing_High']).index
+
+                for i in range(1, len(swing_low_idx)):
+                    prev, curr = swing_low_idx[i-1], swing_low_idx[i]
+                    if (df.loc[curr, 'Close'] < df.loc[prev, 'Close'] and
+                        df.loc[curr, 'Mom'] > df.loc[prev, 'Mom']):
+                        df.loc[curr, 'Bull_Div'] = True
+
+                for i in range(1, len(swing_high_idx)):
+                    prev, curr = swing_high_idx[i-1], swing_high_idx[i]
+                    if (df.loc[curr, 'Close'] > df.loc[prev, 'Close'] and
+                        df.loc[curr, 'Mom'] < df.loc[prev, 'Mom']):
+                        df.loc[curr, 'Bear_Div'] = True
             else:
                 show_stochrsi = False
         except Exception as e:
-            st.warning(f"Stoch RSI hatası: {e}")
+            st.warning(f"Divergence osilatörü hatası: {e}")
             show_stochrsi = False
 
     # SMA
@@ -187,14 +213,22 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                                   mode='markers+text', text="SAT",
                                   marker=dict(symbol='triangle-down', size=15, color='red'), name='SAT'), row=1, col=1)
 
-    # Stoch RSI Okları (Ana grafik üzerinde)
+    # Divergence Okları (Ana grafik üzerinde)
     if show_stochrsi:
-        fig.add_trace(go.Scatter(x=df[df['Cross_Up']].index, y=df[df['Cross_Up']]['Low'] * 0.99,
-                                  mode='markers', marker=dict(symbol='arrow-up', size=8, color='#00ff00'),
-                                  name='K/D Kes-Yukarı'), row=1, col=1)
-        fig.add_trace(go.Scatter(x=df[df['Cross_Down']].index, y=df[df['Cross_Down']]['High'] * 1.01,
-                                  mode='markers', marker=dict(symbol='arrow-down', size=8, color='#ff00ff'),
-                                  name='K/D Kes-Aşağı'), row=1, col=1)
+        bull_div = df[df['Bull_Div'] == True]
+        bear_div = df[df['Bear_Div'] == True]
+        if len(bull_div) > 0:
+            fig.add_trace(go.Scatter(x=bull_div.index, y=bull_div['Low'] * 0.99,
+                                      mode='markers+text', text="▲D",
+                                      textposition='bottom center', textfont=dict(size=9, color='#00e676'),
+                                      marker=dict(symbol='triangle-up', size=12, color='#00e676'),
+                                      name='Yükseliş Uyumsuzluğu'), row=1, col=1)
+        if len(bear_div) > 0:
+            fig.add_trace(go.Scatter(x=bear_div.index, y=bear_div['High'] * 1.01,
+                                      mode='markers+text', text="▼D",
+                                      textposition='top center', textfont=dict(size=9, color='#ff1744'),
+                                      marker=dict(symbol='triangle-down', size=12, color='#ff1744'),
+                                      name='Düşüş Uyumsuzluğu'), row=1, col=1)
 
     # SMA
     if show_sma:
@@ -244,16 +278,38 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
             fig.add_trace(go.Bar(x=[vb], y=[(bins[i] + bins[i + 1]) / 2], orientation='h',
                                   marker_color='rgba(38,166,154,0.4)', showlegend=False), row=1, col=2)
 
-    # Osilatör Paneli (Stoch RSI)
+    # Osilatör Paneli (Divergence Momentum)
     if show_stochrsi:
-        fig.add_trace(go.Scatter(x=df.index, y=df['stoch_k'],
-                                  line=dict(color='green'), name='K'), row=2, col=1)
-        fig.add_trace(go.Scatter(x=df.index, y=df['stoch_d'],
-                                  line=dict(color='red'), name='D'), row=2, col=1)
-        fig.add_hline(y=80, line_dash="dash", line_color="rgba(255,0,0,0.4)",
-                      annotation_text="80", row=2, col=1)
-        fig.add_hline(y=20, line_dash="dash", line_color="rgba(0,128,0,0.4)",
-                      annotation_text="20", row=2, col=1)
+        import numpy as np
+        # Histogram barları (renk: pozitif artan=koyu yeşil, pozitif azalan=açık yeşil, negatif artan=açık kırmızı, negatif azalan=koyu kırmızı)
+        hist_colors = []
+        for i in range(len(df)):
+            h = df['Mom_Hist'].iloc[i]
+            h_prev = df['Mom_Hist'].iloc[i-1] if i > 0 else 0
+            if h >= 0:
+                hist_colors.append('#26a69a' if h >= h_prev else '#b2dfdb')
+            else:
+                hist_colors.append('#ef5350' if h <= h_prev else '#ffcdd2')
+
+        fig.add_trace(go.Bar(x=df.index, y=df['Mom_Hist'], marker_color=hist_colors,
+                              name='Momentum Histogram', showlegend=False), row=2, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['Mom'],
+                                  line=dict(color='#2962ff', width=1.5), name='Momentum'), row=2, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['Mom_Signal'],
+                                  line=dict(color='#ff6d00', width=1.5), name='Sinyal'), row=2, col=1)
+        fig.add_hline(y=0, line_dash="solid", line_color="rgba(128,128,128,0.5)", row=2, col=1)
+
+        # Divergence işaretleri osilatör üzerinde
+        bull_div = df[df['Bull_Div'] == True]
+        bear_div = df[df['Bear_Div'] == True]
+        if len(bull_div) > 0:
+            fig.add_trace(go.Scatter(x=bull_div.index, y=bull_div['Mom'],
+                                      mode='markers', marker=dict(symbol='triangle-up', size=10, color='#00e676'),
+                                      name='Bull Div', showlegend=False), row=2, col=1)
+        if len(bear_div) > 0:
+            fig.add_trace(go.Scatter(x=bear_div.index, y=bear_div['Mom'],
+                                      mode='markers', marker=dict(symbol='triangle-down', size=10, color='#ff1744'),
+                                      name='Bear Div', showlegend=False), row=2, col=1)
 
     fig.update_layout(template='plotly_white', height=900,
                       xaxis_rangeslider_visible=False, barmode='stack',
@@ -280,7 +336,7 @@ st.sidebar.subheader("📊 Göstergeler")
 
 show_kama = st.sidebar.checkbox("KAMA", value=True)
 show_supertrend = st.sidebar.checkbox("SuperTrend (AL/SAT)", value=True)
-show_stochrsi = st.sidebar.checkbox("Stoch RSI + Oklar", value=True)
+show_stochrsi = st.sidebar.checkbox("Divergence Osilatörü", value=True)
 show_fib = st.sidebar.checkbox("Fibonacci Seviyeleri", value=True)
 show_vrvp = st.sidebar.checkbox("VRVP (Hacim Profili)", value=True)
 show_sma = st.sidebar.checkbox("SMA", value=False)
@@ -295,7 +351,7 @@ st.sidebar.subheader("🎯 Hassasiyet Ayarları")
 
 KAMA_HIZI = st.sidebar.slider("KAMA Hızı", 5, 50, 10) if show_kama else 10
 TREND_CARPAN = st.sidebar.slider("Trend Çarpanı", 1.0, 5.0, 2.0, 0.5) if show_supertrend else 2.0
-OSILATOR_PER = st.sidebar.slider("Osilatör Periyodu", 7, 30, 14) if show_stochrsi else 14
+OSILATOR_PER = st.sidebar.slider("Divergence RSI Periyodu", 7, 30, 14) if show_stochrsi else 14
 HACIM_DETAY = st.sidebar.slider("Hacim Detayı", 20, 100, 40) if show_vrvp else 40
 FIB_BAKIS = st.sidebar.number_input("Fib Geriye Bakış (Mum)", value=100) if show_fib else 100
 
@@ -318,28 +374,30 @@ if st.sidebar.button("Analizi Başlat"):
         if fig:
             st.plotly_chart(fig, use_container_width=True)
 else:
-    st.info("Analiz yapmak için sol paneldeki 'Analizi Başlat' butonuna tıklayın. Varlık sembolünü bilmiyorsanız gemini'ye yfinance .... tickerı nedir yazın. Uygulama yatırım tavsiyesi içermez. Ücretsizdir.")
+    st.info("Analiz yapmak için sol paneldeki 'Analizi Başlat' butonuna tıklayın. Varlık sembolünü bilmiyorsanız gemini'ye yfinance -varlık- tickerı yazın. Uygulama yatırım tavsiyesi içermez. Ücretsizdir.")
 
     st.markdown("""
     ---
-    ### 📖 Teknik Analiz Kılavuzu
+    ### 📖 Analiz ve Strateji Kılavuzu
 
     #### 🚀 Sinyaller ve Oklar
     * **Büyük Üçgenler (AL/SAT):** SuperTrend indikatörünün ana trend onay sinyalleridir.
-    * **🟢 Küçük Yeşil Oklar (K/D Kes-Yukarı):** Alt paneldeki yeşil çizgi (K), kırmızıyı (D) alttan yukarı kestiğinde belirir. Genellikle büyük 'AL' üçgeninden önce gelerek size **'Hazırlan, trend dönebilir'** mesajı verir.
-    * **🟣 Küçük Mor Oklar (K/D Kes-Aşağı):** Yeşil çizginin kırmızıyı üstten aşağı kestiği anlardır. Büyük 'SAT' sinyalinden önce gelen bir **'Kar almayı düşün veya temkinli ol'** uyarısıdır.
+    * **🟢 Yeşil ▲D (Yükseliş Uyumsuzluğu):** Fiyat daha düşük dip yaparken osilatör daha yüksek dip yapar. Bu, satış baskısının zayıfladığını ve potansiyel bir yukarı dönüşü işaret eder.
+    * **🔴 Kırmızı ▼D (Düşüş Uyumsuzluğu):** Fiyat daha yüksek tepe yaparken osilatör daha düşük tepe yapar. Bu, alım gücünün tükendiğini ve potansiyel bir aşağı dönüşü işaret eder.
 
     #### 🎯 İndikatör Mantığı (Emniyet Kemeriniz)
     * **KAMA Hızı:** Değerini düşürürseniz fiyatı daha yakından izler, artırırsanız ana trendi gösterir.
     * **Trend Çarpanı:** Değerini 1.5 gibi seviyelere düşürürseniz 'AL/SAT' sinyalleri çok daha erken gelir.
-    * **Stoch RSI Periyodu:** Hızlı piyasalarda gürültüleri filtrelemek için artırılmalıdır.
+    * **Osilatör Periyodu:** Divergence hesaplamasının RSI periyodunu belirler. Düşük değer daha hassas, yüksek değer daha az gürültülüdür.
     * **SMA:** Basit hareketli ortalama. Kısa periyot (10-20) hızlı sinyal, uzun periyot (50-200) ana trend.
     * **Bollinger Bands:** Fiyatın volatilite bandını gösterir. Bantlar daralırsa büyük hareket beklenir.
     * **Ichimoku Cloud:** Bulut (Kumo) destek/direnç, Tenkan/Kijun kesişmeleri sinyal üretir.
 
-    #### 📈 Osilatör ve Hacim Okuma
-    * **Yükseliş Sinyali:** Yeşil çizgi (K), kırmızıyı (D) alttan yukarı kesiyorsa ve **20 seviyesinin altındaysa** (aşırı satım), bu güçlü bir yükseliş sinyalidir.
-    * **Düşüş Sinyali:** Yeşil çizgi (K), kırmızıyı (D) üstten aşağı kesiyorsa ve **80 seviyesinin üzerindeyse** (aşırı alım), bu bir düşüş uyarısıdır.
+    #### 📈 Divergence Osilatörü ve Hacim Okuma
+    * **Histogram (Barlar):** Momentum ile sinyal çizgisi arasındaki farkı gösterir. Koyu yeşil bar = momentum artıyor, açık yeşil = momentum azalıyor ama hâlâ pozitif. Koyu kırmızı = momentum düşüyor, açık kırmızı = düşüş yavaşlıyor.
+    * **Mavi Çizgi (Momentum):** RSI'ın sıfır merkezli hali. Sıfırın üstü yükseliş bölgesi, altı düşüş bölgesidir.
+    * **Turuncu Çizgi (Sinyal):** Momentumun yumuşatılmış hali. Momentum sinyal çizgisini yukarı keserse alım, aşağı keserse satım sinyalidir.
+    * **Uyumsuzluk (Divergence):** En güçlü sinyal türüdür. Fiyat ile osilatör arasındaki uyumsuzluk, trendin dönmek üzere olduğunu gösterir. Özellikle aşırı bölgelerde (yüksek pozitif/negatif) oluşan uyumsuzluklar daha güvenilirdir.
     * **VRVP (Hacim Profili):** Sağdaki barlar paranın en çok hangi fiyat seviyesinde maliyetlendiğini gösterir.
     * **Fibonacci Seviyeleri:** Fiyatın matematiksel olarak destek bulabileceği %23.6, %38.2 ve %50 bölgelerini gösterir.
 
@@ -381,7 +439,3 @@ else:
 
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
-
-
-
-
