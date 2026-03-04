@@ -15,7 +15,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
     df = yf.download(ticker, start=start, end=end, interval=raw_p, auto_adjust=True)
 
     if df.empty:
-        st.error("Veri bulunamadı. Lütfen tarih sınırlarını veya sembolü kontrol edin.") #
+        st.error("Veri bulunamadı. Lütfen tarih sınırlarını veya sembolü kontrol edin.")
         return None
 
     if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
@@ -27,7 +27,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
 
     # 3. Teknik Gösterge Hesaplamaları
     df['KAMA'] = ta.kama(df['Close'], length=k_len)
-    sti = ta.supertrend(df['High'], df['Low'], df['Close'], length=10, multiplier=s_mult) #
+    sti = ta.supertrend(df['High'], df['Low'], df['Close'], length=10, multiplier=s_mult)
     df['ST_Line'], df['ST_Dir'] = sti.iloc[:, 0], sti.iloc[:, 1]
     df['Buy'] = (df['ST_Dir'] == 1) & (df['ST_Dir'].shift(1) == -1)
     df['Sell'] = (df['ST_Dir'] == -1) & (df['ST_Dir'].shift(1) == 1)
@@ -85,14 +85,12 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
 # ============================================================
 st.sidebar.header("🛠️ Analiz Ayarları")
 
-# Temel Bilgiler
 Hisse = st.sidebar.text_input("Hisse Sembolü", value="THYAO.IS")
 col1, col2 = st.sidebar.columns(2)
 Baslangic = col1.date_input("Başlangıç", value=datetime.now() - timedelta(days=60))
 Bitis = col2.date_input("Bitiş", value=datetime.now())
 Secilen_Periyot = st.sidebar.selectbox("Periyot", ["15m", "1h", "8h", "1d"], index=2)
 
-# İndikatör Ayarları
 st.sidebar.markdown("---")
 st.sidebar.subheader("🎯 Hassasiyet Ayarları")
 KAMA_HIZI = st.sidebar.slider("KAMA Hızı", 5, 50, 10)
@@ -101,20 +99,14 @@ OSILATOR_PER = st.sidebar.slider("Osilatör Periyodu", 7, 30, 14)
 HACIM_DETAY = st.sidebar.slider("Hacim Detayı", 20, 100, 40)
 FIB_BAKIS = st.sidebar.number_input("Fib Geriye Bakış (Mum)", value=100)
 
+# Butona tıklandığında analizi yap
 if st.sidebar.button("Analizi Başlat"):
     with st.spinner('Veriler hesaplanıyor...'):
         fig = create_complete_trading_chart(Hisse, Baslangic, Bitis, Secilen_Periyot, KAMA_HIZI, TREND_CARPAN, OSILATOR_PER, HACIM_DETAY, FIB_BAKIS)
         if fig:
             st.plotly_chart(fig, use_container_width=True)
+# Butona henüz basılmadıysa kılavuzu göster
 else:
-    # --- BU KISIM DOSYANIN EN SONUNDA OLACAK ---
-if st.sidebar.button("Analizi Başlat"):
-    with st.spinner('Veriler hesaplanıyor...'):
-        fig = create_complete_trading_chart(Hisse, Baslangic, Bitis, Secilen_Periyot, KAMA_HIZI, TREND_CARPAN, OSILATOR_PER, HACIM_DETAY, FIB_BAKIS)
-        if fig:
-            st.plotly_chart(fig, use_container_width=True)
-else:
-    # --- BURASI SENİN AÇIKLAMALARININ GELECEĞİ YER ---
     st.info("Analiz yapmak için sol paneldeki 'Analizi Başlat' butonuna tıklayın.")
     
     st.markdown("""
@@ -140,4 +132,3 @@ else:
     ---
     *Veriler yfinance üzerinden anlık çekilir. 15m periyot için son 60 gün sınırı mevcuttur.*
     """)
-
