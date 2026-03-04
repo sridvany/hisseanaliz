@@ -67,12 +67,35 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
 
     # Ichimoku
     if show_ichimoku:
-        ichi_vals, ichi_span = ta.ichimoku(df['High'], df['Low'], df['Close'])
-        df['Tenkan'] = ichi_vals.iloc[:, 0]
-        df['Kijun'] = ichi_vals.iloc[:, 1]
-        df['Senkou_A'] = ichi_vals.iloc[:, 2]
-        df['Senkou_B'] = ichi_vals.iloc[:, 3]
-        df['Chikou'] = ichi_vals.iloc[:, 4]
+        ichi = ta.ichimoku(df['High'], df['Low'], df['Close'])
+        if isinstance(ichi, tuple):
+            ichi_df = ichi[0]
+        else:
+            ichi_df = ichi
+        for col in ichi_df.columns:
+            c_lower = col.lower()
+            if 'tenkan' in c_lower or 'isa_9' in c_lower.replace(' ', ''):
+                df['Tenkan'] = ichi_df[col]
+            elif 'kijun' in c_lower or 'isb_26' in c_lower.replace(' ', ''):
+                df['Kijun'] = ichi_df[col]
+            elif 'senkou' in c_lower and 'a' in c_lower or 'isa_9' not in c_lower.replace(' ', '') and 'span_a' in c_lower:
+                df['Senkou_A'] = ichi_df[col]
+            elif 'senkou' in c_lower and 'b' in c_lower or 'span_b' in c_lower:
+                df['Senkou_B'] = ichi_df[col]
+            elif 'chikou' in c_lower:
+                df['Chikou'] = ichi_df[col]
+        # Fallback: sütun ismi eşleşmezse iloc ile al
+        cols = ichi_df.columns.tolist()
+        if 'Tenkan' not in df.columns and len(cols) >= 1:
+            df['Tenkan'] = ichi_df.iloc[:, 0]
+        if 'Kijun' not in df.columns and len(cols) >= 2:
+            df['Kijun'] = ichi_df.iloc[:, 1]
+        if 'Senkou_A' not in df.columns and len(cols) >= 3:
+            df['Senkou_A'] = ichi_df.iloc[:, 2]
+        if 'Senkou_B' not in df.columns and len(cols) >= 4:
+            df['Senkou_B'] = ichi_df.iloc[:, 3]
+        if 'Chikou' not in df.columns and len(cols) >= 5:
+            df['Chikou'] = ichi_df.iloc[:, 4]
 
     # Fibonacci
     fib = {}
