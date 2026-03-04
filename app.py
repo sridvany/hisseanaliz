@@ -146,9 +146,10 @@ else:
     * **Döviz / Emtia:** `EURUSD=X`, `GC=F` (Altın), `CL=F` (Petrol)
 
     ---
-    *Uygulama yatırım tavsiyesi içermez. Ücretsizdir.*
+   
     *(Salih Rıdvan Yılmaz)*
     """)
+
 
 
 
