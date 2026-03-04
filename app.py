@@ -107,4 +107,37 @@ if st.sidebar.button("Analizi Başlat"):
         if fig:
             st.plotly_chart(fig, use_container_width=True)
 else:
-    st.info("Analiz yapmak için sol paneldeki butona tıklayın.")
+    # --- BU KISIM DOSYANIN EN SONUNDA OLACAK ---
+if st.sidebar.button("Analizi Başlat"):
+    with st.spinner('Veriler hesaplanıyor...'):
+        fig = create_complete_trading_chart(Hisse, Baslangic, Bitis, Secilen_Periyot, KAMA_HIZI, TREND_CARPAN, OSILATOR_PER, HACIM_DETAY, FIB_BAKIS)
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
+else:
+    # --- BURASI SENİN AÇIKLAMALARININ GELECEĞİ YER ---
+    st.info("Analiz yapmak için sol paneldeki 'Analizi Başlat' butonuna tıklayın.")
+    
+    st.markdown("""
+    ---
+    ### 📖 Analiz ve Strateji Kılavuzu
+    
+    #### 🚀 Sinyaller ve Oklar
+    * **Büyük Üçgenler (AL/SAT):** SuperTrend indikatörünün ana trend onay sinyalleridir.
+    * **🟢 Küçük Yeşil Oklar (K/D Kes-Yukarı):** Alt paneldeki yeşil çizgi (K), kırmızıyı (D) alttan yukarı kestiğinde belirir. Genellikle büyük 'AL' üçgeninden önce gelerek size **'Hazırlan, trend dönebilir'** mesajı verir.
+    * **🟣 Küçük Mor Oklar (K/D Kes-Aşağı):** Yeşil çizginin kırmızıyı üstten aşağı kestiği anlardır. Büyük 'SAT' sinyalinden önce gelen bir **'Kar almayı düşün veya temkinli ol'** uyarısıdır.
+    
+    #### 🎯 İndikatör Mantığı (Emniyet Kemeriniz)
+    * **KAMA Hızı:** Değerini düşürürseniz fiyatı daha yakından izler, artırırsanız ana trendi gösterir. (Hızlı piyasada indikatörleri sakinleştirmek, sizi duygusal hatalardan korur.)
+    * **Trend Çarpanı:** Değerini 1.5 gibi seviyelere düşürürseniz 'AL/SAT' sinyalleri çok daha erken gelir.
+    * **Stoch RSI Periyodu:** Hızlı piyasalarda gürültüleri filtrelemek için artırılmalıdır.
+    
+    #### 📈 Osilatör ve Hacim Okuma
+    * **Yükseliş Sinyali:** Yeşil çizgi (K), kırmızıyı (D) alttan yukarı kesiyorsa ve **20 seviyesinin altındaysa** (aşırı satım), bu güçlü bir yükseliş sinyalidir.
+    * **Düşüş Sinyali:** Yeşil çizgi (K), kırmızıyı (D) üstten aşağı kesiyorsa ve **80 seviyesinin üzerindeyse** (aşırı alım), bu bir düşüş uyarısıdır.
+    * **VRVP (Hacim Profili):** Sağdaki barlar paranın en çok hangi fiyat seviyesinde maliyetlendiğini gösterir.
+    * **Fibonacci Seviyeleri:** Fiyatın matematiksel olarak destek bulabileceği %23.6, %38.2 ve %50 bölgelerini gösterir.
+
+    ---
+    *Veriler yfinance üzerinden anlık çekilir. 15m periyot için son 60 gün sınırı mevcuttur.*
+    """)
+
