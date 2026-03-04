@@ -175,6 +175,10 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                                   line=dict(color='green'), name='K'), row=2, col=1)
         fig.add_trace(go.Scatter(x=df.index, y=df['stoch_d'],
                                   line=dict(color='red'), name='D'), row=2, col=1)
+        fig.add_hline(y=80, line_dash="dash", line_color="rgba(255,0,0,0.4)",
+                      annotation_text="80", row=2, col=1)
+        fig.add_hline(y=20, line_dash="dash", line_color="rgba(0,128,0,0.4)",
+                      annotation_text="20", row=2, col=1)
 
     fig.update_layout(template='plotly_white', height=900,
                       xaxis_rangeslider_visible=False, barmode='stack',
