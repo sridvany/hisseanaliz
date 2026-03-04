@@ -294,9 +294,9 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
         fig.add_trace(go.Bar(x=df.index, y=df['Mom_Hist'], marker_color=hist_colors,
                               name='Momentum Histogram', showlegend=False), row=2, col=1)
         fig.add_trace(go.Scatter(x=df.index, y=df['Mom'],
-                                  line=dict(color='#2962ff', width=1.5), name='Momentum'), row=2, col=1)
+                                  line=dict(color='#00c853', width=1.5), name='Momentum'), row=2, col=1)
         fig.add_trace(go.Scatter(x=df.index, y=df['Mom_Signal'],
-                                  line=dict(color='#ff6d00', width=1.5), name='Sinyal'), row=2, col=1)
+                                  line=dict(color='#ff1744', width=1.5), name='Sinyal'), row=2, col=1)
         fig.add_hline(y=0, line_dash="solid", line_color="rgba(128,128,128,0.5)", row=2, col=1)
 
         # Divergence işaretleri osilatör üzerinde
@@ -374,11 +374,11 @@ if st.sidebar.button("Analizi Başlat"):
         if fig:
             st.plotly_chart(fig, use_container_width=True)
 else:
-    st.info("Analiz yapmak için sol paneldeki 'Analizi Başlat' butonuna tıklayın. Varlık sembolünü bilmiyorsanız gemini'ye yfinance .... tickerı nedir yazın. Uygulama yatırım tavsiyesi içermez. Ücretsizdir")
+    st.info("Analiz yapmak için sol paneldeki 'Analizi Başlat' butonuna tıklayın. Varlık sembolünü bilmiyorsanız gemini'ye yfinance -varlık- tickerı yazın. Uygulama yatırım tavsiyesi içermez. Ücretsizdir.")
 
     st.markdown("""
     ---
-    ### 📖 Teknik Analiz Klavuzu
+    ### 📖 Analiz ve Strateji Kılavuzu
 
     #### 🚀 Sinyaller ve Oklar
     * **Büyük Üçgenler (AL/SAT):** SuperTrend indikatörünün ana trend onay sinyalleridir.
@@ -395,8 +395,8 @@ else:
 
     #### 📈 Divergence Osilatörü ve Hacim Okuma
     * **Histogram (Barlar):** Momentum ile sinyal çizgisi arasındaki farkı gösterir. Koyu yeşil bar = momentum artıyor, açık yeşil = momentum azalıyor ama hâlâ pozitif. Koyu kırmızı = momentum düşüyor, açık kırmızı = düşüş yavaşlıyor.
-    * **Mavi Çizgi (Momentum):** RSI'ın sıfır merkezli hali. Sıfırın üstü yükseliş bölgesi, altı düşüş bölgesidir.
-    * **Turuncu Çizgi (Sinyal):** Momentumun yumuşatılmış hali. Momentum sinyal çizgisini yukarı keserse alım, aşağı keserse satım sinyalidir.
+    * **Yeşil Çizgi (Momentum):** RSI'ın sıfır merkezli hali. Sıfırın üstü yükseliş bölgesi, altı düşüş bölgesidir.
+    * **Kırmızı Çizgi (Sinyal):** Momentumun yumuşatılmış hali. Momentum sinyal çizgisini yukarı keserse alım, aşağı keserse satım sinyalidir.
     * **Uyumsuzluk (Divergence):** En güçlü sinyal türüdür. Fiyat ile osilatör arasındaki uyumsuzluk, trendin dönmek üzere olduğunu gösterir. Özellikle aşırı bölgelerde (yüksek pozitif/negatif) oluşan uyumsuzluklar daha güvenilirdir.
     * **VRVP (Hacim Profili):** Sağdaki barlar paranın en çok hangi fiyat seviyesinde maliyetlendiğini gösterir.
     * **Fibonacci Seviyeleri:** Fiyatın matematiksel olarak destek bulabileceği %23.6, %38.2 ve %50 bölgelerini gösterir.
@@ -439,4 +439,3 @@ else:
 
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
-
