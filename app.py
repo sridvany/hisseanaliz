@@ -228,7 +228,7 @@ Hisse = st.sidebar.text_input("Varlık Sembolü", value="GC=F")
 col1, col2 = st.sidebar.columns(2)
 Baslangic = col1.date_input("Başlangıç", value=datetime.now() - timedelta(days=60))
 Bitis = col2.date_input("Bitiş", value=datetime.now())
-Secilen_Periyot = st.sidebar.selectbox("Periyot", ["15m", "30m", "1h", "2h", "4h", "8h", "1d"], index=4)
+Secilen_Periyot = st.sidebar.selectbox("Periyot", ["15m", "30m", "1h", "2h", "4h", "8h", "1d", "1wk"], index=4)
 
 # ============================================================
 # 📊 Gösterge Açma/Kapama
