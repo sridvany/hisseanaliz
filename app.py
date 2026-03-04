@@ -61,9 +61,13 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
     # Bollinger Bands
     if show_bb:
         bbands = ta.bbands(df['Close'], length=bb_len, std=bb_std)
-        df['BB_Upper'] = bbands.iloc[:, 0]
-        df['BB_Mid'] = bbands.iloc[:, 1]
-        df['BB_Lower'] = bbands.iloc[:, 2]
+        for c in bbands.columns:
+            if c.startswith('BBU'):
+                df['BB_Upper'] = bbands[c]
+            elif c.startswith('BBM'):
+                df['BB_Mid'] = bbands[c]
+            elif c.startswith('BBL'):
+                df['BB_Lower'] = bbands[c]
 
     # Ichimoku
     if show_ichimoku:
