@@ -147,8 +147,9 @@ else:
 
     ---
    
-    *(Salih Rıdvan Yılmaz)*
+    *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
+
 
 
 
