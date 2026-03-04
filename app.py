@@ -146,10 +146,10 @@ else:
     * **Döviz / Emtia:** `EURUSD=X`, `GC=F` (Altın), `CL=F` (Petrol)
 
     ---
-    *Uygulama yatırım tavsiyesi içermez. Aylık 50-100 dolar arası maliyeti olan sitelerdeki bir analizi ücretsiz olarak sunar.*
-    ---
+    *Uygulama yatırım tavsiyesi içermez. Ücretli online sitelerdeki analizleri ücretsiz olarak sunar.*
     *salih rıdvan yılmaz*
     """)
+
 
 
 
