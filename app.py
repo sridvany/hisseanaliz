@@ -146,8 +146,9 @@ else:
     * **Döviz / Emtia:** `EURUSD=X`, `GC=F` (Altın), `CL=F` (Petrol)
 
     ---
-    *Kolay gelsin...*
+    *yatırım tavsiyesi içermez...*
     """)
+
 
 
 
