@@ -343,6 +343,24 @@ else:
     * **VRVP (Hacim Profili):** Sağdaki barlar paranın en çok hangi fiyat seviyesinde maliyetlendiğini gösterir.
     * **Fibonacci Seviyeleri:** Fiyatın matematiksel olarak destek bulabileceği %23.6, %38.2 ve %50 bölgelerini gösterir.
 
+    #### 📐 SMA (Basit Hareketli Ortalama)
+    * **Trend Yönü:** Fiyat SMA'nın üzerindeyse yükseliş trendi, altındaysa düşüş trendi hakimdir.
+    * **Kesişme Sinyalleri:** Fiyat SMA'yı alttan yukarı keserse alım, üstten aşağı keserse satım sinyalidir.
+    * **Golden Cross / Death Cross:** SMA 50, SMA 200'ü yukarı keserse "Golden Cross" (güçlü alım), aşağı keserse "Death Cross" (güçlü satım) oluşur.
+    * **Periyot Seçimi:** Kısa periyot (10-20) kısa vadeli dalgalanmaları, uzun periyot (50-200) ana trendi gösterir.
+
+    #### 🎸 Bollinger Bands (Volatilite Bantları)
+    * **Aşırı Alım/Satım:** Fiyat üst banda yaklaşırsa aşırı alım bölgesi, alt banda yaklaşırsa aşırı satım bölgesidir.
+    * **Squeeze (Daralma):** Bantlar birbirine yaklaşırsa büyük bir kırılım hareketi yakındır. Kırılımın yönü trendi belirler.
+    * **Bant Dışı Dönüş:** Fiyat alt bandın dışına çıkıp tekrar içeri girerse potansiyel yukarı dönüş, üst bant için tersi geçerlidir.
+    * **Orta Bant (SMA):** Orta çizgi destek/direnç görevi görür. Fiyat orta bandın üzerinde kalıyorsa trend güçlüdür.
+
+    #### ☁️ Ichimoku Cloud (Bulut Sistemi)
+    * **Bulut (Kumo) Yorumu:** Fiyat bulutun üstündeyse yükseliş, altındaysa düşüş trendi hakimdir. Bulutun içindeyse kararsız bölgedir.
+    * **Tenkan/Kijun Kesişmesi:** Tenkan (mavi) Kijun'u (kırmızı) yukarı keserse alım sinyali, aşağı keserse satım sinyalidir.
+    * **Bulut Kalınlığı:** Kalın bulut güçlü destek/direnç anlamına gelir, ince bulut ise zayıf bariyerdir.
+    * **Chikou (Gecikmeli Çizgi):** Mor noktalı çizgi fiyatın 26 periyot gerisini gösterir. Fiyatın üzerindeyse trend güçlü, altındaysa trend zayıflıyor demektir.
+
     #### ⏱ Zaman Dilimi ve Geçmiş Veri Limitleri
     * **Seçenekler:** `15m`, `30m`, `1h`, `2h`, `4h`, `8h`, `1d`
     * **Maksimum Geriye Dönük Süreler:**
