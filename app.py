@@ -322,7 +322,7 @@ else:
 
     st.markdown("""
     ---
-    ### 📖 Analiz ve Strateji Kılavuzu
+    ### 📖 Teknik Analiz Kılavuzu
 
     #### 🚀 Sinyaller ve Oklar
     * **Büyük Üçgenler (AL/SAT):** SuperTrend indikatörünün ana trend onay sinyalleridir.
@@ -381,6 +381,7 @@ else:
 
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
+
 
 
 
