@@ -107,7 +107,7 @@ if st.sidebar.button("Analizi Başlat"):
             st.plotly_chart(fig, use_container_width=True)
 # Butona henüz basılmadıysa kılavuzu göster
 else:
-    st.info("Analiz yapmak için sol paneldeki 'Analizi Başlat' butonuna tıklayın. Varlık sembolünü bilmiyorsanız gemini'ye yfinance -varlık- tickerı yazın.")
+    st.info("Analiz yapmak için sol paneldeki 'Analizi Başlat' butonuna tıklayın. Varlık sembolünü bilmiyorsanız gemini'ye yfinance -varlık- tickerı yazın. Uygulama yatırım tavsiyesi içermez. Ücretsizdir.")
     
     st.markdown("""
     ---
@@ -149,6 +149,7 @@ else:
     *Uygulama yatırım tavsiyesi içermez. Ücretsizdir.*
     *(Salih Rıdvan Yılmaz)*
     """)
+
 
 
 
