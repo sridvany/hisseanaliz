@@ -186,7 +186,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
     # 4. Görselleştirme
     # ============================================================
     has_oscillator = show_stochrsi
-    row_heights = [0.8, 0.2] if has_oscillator else [1.0, 0.001]
+    row_heights = [0.65, 0.35] if has_oscillator else [1.0, 0.001]
 
     fig = make_subplots(rows=2, cols=2, shared_xaxes=True, shared_yaxes=True,
                         column_widths=[0.85, 0.15], row_heights=row_heights,
