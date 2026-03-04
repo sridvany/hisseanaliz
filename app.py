@@ -402,10 +402,13 @@ else:
     * **Ichimoku Cloud:** Bulut (Kumo) destek/direnç, Tenkan/Kijun kesişmeleri sinyal üretir.
 
     #### 📈 Divergence Osilatörü ve Hacim Okuma
-    * **Histogram (Barlar):** Momentum ile sinyal çizgisi arasındaki farkı gösterir. Koyu yeşil bar = momentum artıyor, açık yeşil = momentum azalıyor ama hâlâ pozitif. Koyu kırmızı = momentum düşüyor, açık kırmızı = düşüş yavaşlıyor.
+    * **Histogram (Barlar):** Momentum ile sinyal çizgisi arasındaki farkı gösterir. Koyu yeşil = momentum artıyor, açık yeşil = momentum azalıyor ama hâlâ pozitif. Koyu kırmızı = momentum düşüyor, açık kırmızı = düşüş yavaşlıyor.
     * **Yeşil Çizgi (Momentum):** RSI'ın sıfır merkezli hali. Sıfırın üstü yükseliş bölgesi, altı düşüş bölgesidir.
-    * **Kırmızı Çizgi (Sinyal):** Momentumun yumuşatılmış hali. Momentum sinyal çizgisini yukarı keserse alım, aşağı keserse satım sinyalidir.
-    * **Uyumsuzluk (Divergence):** En güçlü sinyal türüdür. Fiyat ile osilatör arasındaki uyumsuzluk, trendin dönmek üzere olduğunu gösterir. Özellikle aşırı bölgelerde (yüksek pozitif/negatif) oluşan uyumsuzluklar daha güvenilirdir.
+    * **Kırmızı Çizgi (Sinyal):** Momentumun 9 periyotluk ortalaması. Yeşil çizgi kırmızıyı yukarı keserse alım, aşağı keserse satım sinyalidir.
+    * **Yeşil/Kırmızı Kesişme:** Yeşil çizgi kırmızının üzerindeyken histogram pozitiftir (alıcılar güçlü). Yeşil kırmızının altına düştüğünde histogram negatife döner (satıcılar güçlü).
+    * **Kırmızı Yatay Çizgiler (+20/+30 — Aşırı Alım):** Momentum bu bölgeye çıktığında fiyat aşırı alım bölgesindedir. Yeşil çizgi bu bölgede kırmızıyı aşağı keserse güçlü satım sinyalidir.
+    * **Yeşil Yatay Çizgiler (-20/-30 — Aşırı Satım):** Momentum bu bölgeye düştüğünde fiyat aşırı satım bölgesindedir. Yeşil çizgi bu bölgede kırmızıyı yukarı keserse güçlü alım sinyalidir.
+    * **Uyumsuzluk (Divergence) — Yalan Dedektörü:** Bu gösterge fiyatın söylediği ile gerçekte olan arasındaki çelişkiyi yakalar. Fiyat yeni tepe yapıyorsa ama momentum yapmıyorsa (▼D), "Bu yükseliş yalan, güç tükeniyor" der. Fiyat yeni dip yapıyorsa ama momentum yapmıyorsa (▲D), "Bu düşüş yalan, satıcılar zayıflıyor" der. Aşırı bölgelerde (+30 üstü veya -30 altı) oluşan uyumsuzluklar en güvenilir yalan tespitleridir.
     * **VRVP (Hacim Profili):** Sağdaki barlar paranın en çok hangi fiyat seviyesinde maliyetlendiğini gösterir.
     * **Fibonacci Seviyeleri:** Fiyatın matematiksel olarak destek bulabileceği %23.6, %38.2 ve %50 bölgelerini gösterir.
 
