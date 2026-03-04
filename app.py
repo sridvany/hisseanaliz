@@ -391,7 +391,6 @@ else:
     * **Ichimoku Cloud:** Bulut (Kumo) destek/direnç, Tenkan/Kijun kesişmeleri sinyal üretir.
 
     #### 📈 Divergence Osilatörü ve Hacim Okuma
-    * **Histogram (Barlar):** Momentum ile sinyal çizgisi arasındaki farkı gösterir. Koyu yeşil = momentum artıyor, açık yeşil = momentum azalıyor ama hâlâ pozitif. Koyu kırmızı = momentum düşüyor, açık kırmızı = düşüş yavaşlıyor.
     * **Yeşil Çizgi (Momentum):** RSI'ın sıfır merkezli hali. Sıfırın üstü yükseliş bölgesi, altı düşüş bölgesidir.
     * **Kırmızı Çizgi (Sinyal):** Momentumun 9 periyotluk ortalaması. Yeşil çizgi kırmızıyı yukarı keserse alım, aşağı keserse satım sinyalidir.
     * **Yeşil/Kırmızı Kesişme:** Yeşil çizgi kırmızının üzerindeyken histogram pozitiftir (alıcılar güçlü). Yeşil kırmızının altına düştüğünde histogram negatife döner (satıcılar güçlü).
@@ -439,3 +438,4 @@ else:
 
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
+
