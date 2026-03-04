@@ -146,8 +146,9 @@ else:
     * **Döviz / Emtia:** `EURUSD=X`, `GC=F` (Altın), `CL=F` (Petrol)
 
     ---
-    *Veriler yfinance üzerinden anlık çekilir. 15m periyot için son 60 gün sınırı mevcuttur.*
+    *Kolay gelsin...*
     """)
+
 
 
 
