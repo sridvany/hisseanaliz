@@ -139,8 +139,15 @@ else:
     *   · **1d:** Sınırsız
     *   · **1w:** Sınırsız
 
+    #### 🔍 Ticker (Sembol) Seçimi
+    * **Borsa İstanbul:** Sembolün sonuna `.IS` ekleyin. Örn: `THYAO.IS`, `ASELS.IS`, `TUPRS.IS`
+    * **Kripto:** Parite formatında yazın. Örn: `BTC-USD`, `ETH-USD`, `AVAX-USD`
+    * **ABD Hisseleri:** Direkt sembol yeterli. Örn: `AAPL`, `TSLA`, `MSFT`
+    * **Döviz / Emtia:** `EURUSD=X`, `GC=F` (Altın), `CL=F` (Petrol)
+
     ---
     *Veriler yfinance üzerinden anlık çekilir. 15m periyot için son 60 gün sınırı mevcuttur.*
     """)
+
 
 
