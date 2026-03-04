@@ -282,17 +282,6 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
     if show_stochrsi:
         import numpy as np
         # Histogram barları (renk: pozitif artan=koyu yeşil, pozitif azalan=açık yeşil, negatif artan=açık kırmızı, negatif azalan=koyu kırmızı)
-        hist_colors = []
-        for i in range(len(df)):
-            h = df['Mom_Hist'].iloc[i]
-            h_prev = df['Mom_Hist'].iloc[i-1] if i > 0 else 0
-            if h >= 0:
-                hist_colors.append('#26a69a' if h >= h_prev else '#b2dfdb')
-            else:
-                hist_colors.append('#ef5350' if h <= h_prev else '#ffcdd2')
-
-        fig.add_trace(go.Bar(x=df.index, y=df['Mom_Hist'], marker_color=hist_colors,
-                              name='Momentum Histogram', showlegend=False), row=2, col=1)
         fig.add_trace(go.Scatter(x=df.index, y=df['Mom'],
                                   line=dict(color='#00c853', width=1.5), name='Momentum'), row=2, col=1)
         fig.add_trace(go.Scatter(x=df.index, y=df['Mom_Signal'],
