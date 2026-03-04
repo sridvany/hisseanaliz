@@ -130,7 +130,7 @@ else:
     * **Fibonacci Seviyeleri:** Fiyatın matematiksel olarak destek bulabileceği %23.6, %38.2 ve %50 bölgelerini gösterir.
 
     #### ⏱ Zaman Dilimi ve Geçmiş Veri Limitleri
-    * **Seçenekler:** `15m`, `1h`, `8h`, `1d` arasından birini seçin.
+    * **Seçenekler:** `15m (minute)`, `1h (hour)`, `8h`, `1d (day)` arasından birini seçin.
     * **Maksimum Geriye Dönük Süreler:**
     *   · **1m:** 7 gün
     *   · **2m / 5m / 15m / 30m / 90m:** 60 gün
@@ -148,6 +148,7 @@ else:
     ---
     *yatırım tavsiyesi içermez...*
     """)
+
 
 
 
