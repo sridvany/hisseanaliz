@@ -3,200 +3,379 @@ import yfinance as yf
 import pandas as pd
 import pandas_ta as ta
 import plotly.graph_objects as go
-import numpy as np
 from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
 
-# ============================================================
-# ⚙️ AYARLAR VE SAYFA YAPISI
-# ============================================================
+# Sayfa Genişliği Ayarı
 st.set_page_config(layout="wide", page_title="AI Teknik Analiz Terminali")
 
-@st.cache_data(ttl=600)
-def get_clean_data(ticker, start, end, interval):
-    """Veri çekme ve resampling (Eleştirideki hızlandırma uygulandı)"""
-    resample_map = {"2h": "1h", "4h": "1h", "8h": "1h"}
-    download_p = resample_map.get(interval, interval)
-    
-    df = yf.download(ticker, start=start, end=end, interval=download_p, auto_adjust=True)
-    if df.empty: return None
+def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_len, v_bins, f_look,
+                                   show_kama, show_supertrend, show_stochrsi, show_fib, show_vrvp,
+                                   show_sma, sma_len, show_bb, bb_len, bb_std,
+                                   show_ichimoku):
+    # 1. Veri Çekme (resampling gereken periyotlar için 1h çekip dönüştürme)
+    resample_map = {"2h": "2h", "4h": "4h", "8h": "8h"}
+    raw_p = "1h" if per in resample_map else per
+    df = yf.download(ticker, start=start, end=end, interval=raw_p, auto_adjust=True)
+
+    if df.empty:
+        st.error("Veri bulunamadı. Lütfen tarih sınırlarını veya sembolü kontrol edin.")
+        return None
 
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
     df.columns = [c.strip().title() for c in df.columns]
 
-    if interval in resample_map:
-        df = df.resample(interval).agg({
+    # 2. Resampling (2h, 4h, 8h)
+    if per in resample_map:
+        df = df.resample(resample_map[per]).agg({
             'Open': 'first', 'High': 'max', 'Low': 'min', 'Close': 'last', 'Volume': 'sum'
         }).dropna()
-    return df
 
-# ============================================================
-# 🧠 HESAPLAMA MOTORU (ELEŞTİRİLERE GÖRE İYİLEŞTİRİLDİ)
-# ============================================================
-def calculate_all_indicators(df, p):
+    # ============================================================
+    # 3. Teknik Gösterge Hesaplamaları
+    # ============================================================
+
     # KAMA
-    if p['show_kama']:
-        df['KAMA'] = ta.kama(df['Close'], length=p['k_len'])
+    if show_kama:
+        try:
+            kama_result = ta.kama(df['Close'], length=k_len)
+            if kama_result is not None:
+                df['KAMA'] = kama_result
+            else:
+                show_kama = False
+        except Exception as e:
+            st.warning(f"KAMA hatası: {e}")
+            show_kama = False
 
     # SuperTrend
-    if p['show_st']:
-        st_df = ta.supertrend(df['High'], df['Low'], df['Close'], length=10, multiplier=p['s_mult'])
-        if st_df is not None:
-            df['ST_Line'] = st_df.iloc[:, 0]
-            df['ST_Dir'] = st_df.iloc[:, 1]
-            df['Buy'] = (df['ST_Dir'] == 1) & (df['ST_Dir'].shift(1) == -1)
-            df['Sell'] = (df['ST_Dir'] == -1) & (df['ST_Dir'].shift(1) == 1)
+    if show_supertrend:
+        try:
+            sti = ta.supertrend(df['High'], df['Low'], df['Close'], length=10, multiplier=s_mult)
+            if sti is not None and hasattr(sti, 'iloc'):
+                df['ST_Line'], df['ST_Dir'] = sti.iloc[:, 0], sti.iloc[:, 1]
+                df['Buy'] = (df['ST_Dir'] == 1) & (df['ST_Dir'].shift(1) == -1)
+                df['Sell'] = (df['ST_Dir'] == -1) & (df['ST_Dir'].shift(1) == 1)
+            else:
+                show_supertrend = False
+        except Exception as e:
+            st.warning(f"SuperTrend hatası: {e}")
+            show_supertrend = False
 
-    # Divergence (Vektörel Hesaplama - Hızlı ve Hatasız)
-    if p['show_osc']:
-        df['RSI'] = ta.rsi(df['Close'], length=p['osc_len'])
-        df['Mom'] = df['RSI'] - 50
-        df['Mom_Signal'] = ta.ema(df['Mom'], length=9)
-        # Swing tespiti (Eleştirideki for döngüsü yerine vektörel çözüm)
-        lb = 5
-        df['Low_S'] = (df['Close'] == df['Close'].rolling(2*lb+1, center=True).min())
-        df['High_S'] = (df['Close'] == df['Close'].rolling(2*lb+1, center=True).max())
-        df['Bull_Div'] = (df['Low_S']) & (df['Close'] < df['Close'].shift(lb)) & (df['Mom'] > df['Mom'].shift(lb))
-        df['Bear_Div'] = (df['High_S']) & (df['Close'] > df['Close'].shift(lb)) & (df['Mom'] < df['Mom'].shift(lb))
+    # Divergence Osilatörü (Momentum + Uyumsuzluk Tespiti)
+    if show_stochrsi:
+        try:
+            import numpy as np
+            rsi_raw = ta.rsi(df['Close'], length=srsi_len)
+            if rsi_raw is not None:
+                df['Mom'] = rsi_raw - 50  # Sıfır merkezli momentum
+                df['Mom_Signal'] = ta.ema(df['Mom'], length=9)  # Sinyal çizgisi
+                df['Mom_Hist'] = df['Mom'] - df['Mom_Signal']  # Histogram
 
-    # SMA & Bollinger
-    if p['show_sma']:
-        df['SMA'] = ta.sma(df['Close'], length=p['sma_len'])
-    if p['show_bb']:
-        bbands = ta.bbands(df['Close'], length=p['bb_len'], std=p['bb_std'])
-        if bbands is not None:
-            df['BB_Upper'] = bbands.iloc[:, 2]
-            df['BB_Mid'] = bbands.iloc[:, 1]
-            df['BB_Lower'] = bbands.iloc[:, 0]
+                # Swing noktaları ile uyumsuzluk tespiti
+                lookback = 5
+                df['Swing_Low'] = df['Close'][(df['Close'].shift(lookback) > df['Close']) & (df['Close'].shift(-lookback) > df['Close'])]
+                df['Swing_High'] = df['Close'][(df['Close'].shift(lookback) < df['Close']) & (df['Close'].shift(-lookback) < df['Close'])]
+                df['Mom_Swing_Low'] = df['Mom'][(df['Mom'].shift(lookback) > df['Mom']) & (df['Mom'].shift(-lookback) > df['Mom'])]
+                df['Mom_Swing_High'] = df['Mom'][(df['Mom'].shift(lookback) < df['Mom']) & (df['Mom'].shift(-lookback) < df['Mom'])]
 
-    # Ichimoku (Sütun Güvenliği Sağlandı)
-    if p['show_ichimoku']:
-        ichi, _ = ta.ichimoku(df['High'], df['Low'], df['Close'])
-        if ichi is not None:
-            df['Tenkan'] = ichi.iloc[:, 0]
-            df['Kijun'] = ichi.iloc[:, 1]
-            df['Senkou_A'] = ichi.iloc[:, 2]
-            df['Senkou_B'] = ichi.iloc[:, 3]
-            df['Chikou'] = ichi.iloc[:, 4]
+                # Bullish Divergence: fiyat düşük dip, osilatör yüksek dip
+                df['Bull_Div'] = False
+                df['Bear_Div'] = False
+                swing_low_idx = df.dropna(subset=['Swing_Low']).index
+                swing_high_idx = df.dropna(subset=['Swing_High']).index
+
+                for i in range(1, len(swing_low_idx)):
+                    prev, curr = swing_low_idx[i-1], swing_low_idx[i]
+                    if (df.loc[curr, 'Close'] < df.loc[prev, 'Close'] and
+                        df.loc[curr, 'Mom'] > df.loc[prev, 'Mom']):
+                        df.loc[curr, 'Bull_Div'] = True
+
+                for i in range(1, len(swing_high_idx)):
+                    prev, curr = swing_high_idx[i-1], swing_high_idx[i]
+                    if (df.loc[curr, 'Close'] > df.loc[prev, 'Close'] and
+                        df.loc[curr, 'Mom'] < df.loc[prev, 'Mom']):
+                        df.loc[curr, 'Bear_Div'] = True
+            else:
+                show_stochrsi = False
+        except Exception as e:
+            st.warning(f"Divergence osilatörü hatası: {e}")
+            show_stochrsi = False
+
+    # SMA
+    if show_sma:
+        try:
+            sma_result = ta.sma(df['Close'], length=sma_len)
+            if sma_result is not None:
+                df['SMA'] = sma_result
+            else:
+                show_sma = False
+        except Exception as e:
+            st.warning(f"SMA hatası: {e}")
+            show_sma = False
+
+    # Bollinger Bands
+    if show_bb:
+        try:
+            bbands = ta.bbands(df['Close'], length=bb_len, std=bb_std)
+            if bbands is not None and hasattr(bbands, 'columns'):
+                for c in bbands.columns:
+                    if c.startswith('BBU'):
+                        df['BB_Upper'] = bbands[c]
+                    elif c.startswith('BBM'):
+                        df['BB_Mid'] = bbands[c]
+                    elif c.startswith('BBL'):
+                        df['BB_Lower'] = bbands[c]
+            else:
+                st.warning("Bollinger Bands hesaplanamadı (veri yetersiz olabilir).")
+                show_bb = False
+        except Exception as e:
+            st.warning(f"Bollinger Bands hatası: {e}")
+            show_bb = False
+
+    # Ichimoku
+    if show_ichimoku:
+        try:
+            ichi_result = ta.ichimoku(df['High'], df['Low'], df['Close'])
+            # tuple ise ilk elemanı al, değilse direkt kullan
+            if isinstance(ichi_result, tuple):
+                ichi_df = ichi_result[0]
+            else:
+                ichi_df = ichi_result
+            # None kontrolü
+            if ichi_df is None or not hasattr(ichi_df, 'columns'):
+                st.warning("Ichimoku hesaplanamadı (veri yetersiz olabilir).")
+                show_ichimoku = False
+            else:
+                cols = ichi_df.columns.tolist()
+                # iloc ile pozisyon bazlı erişim (en güvenli)
+                if len(cols) >= 5:
+                    df['Tenkan'] = ichi_df.iloc[:, 0]
+                    df['Kijun'] = ichi_df.iloc[:, 3]
+                    df['Senkou_A'] = ichi_df.iloc[:, 0]
+                    df['Senkou_B'] = ichi_df.iloc[:, 1]
+                    df['Chikou'] = ichi_df.iloc[:, 4]
+                    # İsim bazlı düzeltme (varsa)
+                    for c in cols:
+                        cl = c.upper()
+                        if 'ITS' in cl:
+                            df['Tenkan'] = ichi_df[c]
+                        elif 'IKS' in cl:
+                            df['Kijun'] = ichi_df[c]
+                        elif 'ISA' in cl:
+                            df['Senkou_A'] = ichi_df[c]
+                        elif 'ISB' in cl:
+                            df['Senkou_B'] = ichi_df[c]
+                        elif 'ICS' in cl:
+                            df['Chikou'] = ichi_df[c]
+                else:
+                    st.warning(f"Ichimoku beklenen 5 sütun yerine {len(cols)} sütun döndürdü: {cols}")
+                    show_ichimoku = False
+        except Exception as e:
+            st.warning(f"Ichimoku hesaplama hatası: {e}")
+            show_ichimoku = False
 
     # Fibonacci
-    if p['show_fib']:
-        f_df = df.tail(p['f_look'])
+    fib = {}
+    if show_fib:
+        f_df = df if f_look is None else df.tail(f_look)
         hi, lo = f_df['High'].max(), f_df['Low'].min()
-        p['fib_levels'] = {
-            '23.6%': hi - 0.236 * (hi - lo),
-            '38.2%': hi - 0.382 * (hi - lo),
-            '50%': hi - 0.5 * (hi - lo)
-        }
-    
-    return df
+        fib = {'23.6%': hi - 0.236 * (hi - lo), '38.2%': hi - 0.382 * (hi - lo), '50%': hi - 0.5 * (hi - lo)}
 
-# ============================================================
-# 🎨 GÖRSELLEŞTİRME (ORİJİNAL TASARIM VE RENKLER)
-# ============================================================
-def create_trading_plot(df, ticker, p):
-    has_osc = p['show_osc']
-    row_h = [0.65, 0.35] if has_osc else [1.0, 0.01]
-    
-    fig = make_subplots(rows=2, cols=2, shared_xaxes=True, 
-                        column_widths=[0.85, 0.15], row_heights=row_h,
+    # ============================================================
+    # 4. Görselleştirme
+    # ============================================================
+    has_oscillator = show_stochrsi
+    row_heights = [0.65, 0.35] if has_oscillator else [1.0, 0.001]
+
+    fig = make_subplots(rows=2, cols=2, shared_xaxes=True, shared_yaxes=True,
+                        column_widths=[0.85, 0.15], row_heights=row_heights,
                         vertical_spacing=0.05, horizontal_spacing=0.01)
 
-    # 1. Mum Grafiği
-    fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], 
-                                  low=df['Low'], close=df['Close'], name="Fiyat"), row=1, col=1)
+    # Mum Grafiği
+    fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'],
+                                  low=df['Low'], close=df['Close'], name='Fiyat'), row=1, col=1)
 
-    # 2. İndikatör Çizimleri
-    if 'KAMA' in df:
-        fig.add_trace(go.Scatter(x=df.index, y=df['KAMA'], line=dict(color='#2962ff', width=2), name='KAMA'), row=1, col=1)
-    
-    if 'SMA' in df:
-        fig.add_trace(go.Scatter(x=df.index, y=df['SMA'], line=dict(color='#ff9800', width=2), name='SMA'), row=1, col=1)
+    # KAMA
+    if show_kama:
+        fig.add_trace(go.Scatter(x=df.index, y=df['KAMA'],
+                                  line=dict(color='#2962ff', width=2), name='KAMA'), row=1, col=1)
 
-    if 'ST_Line' in df:
-        fig.add_trace(go.Scatter(x=df.index, y=df['ST_Line'], line=dict(color='rgba(80,80,80,0.7)', width=2, line_shape='hv'), name='Trend'), row=1, col=1)
-        buys, sells = df[df['Buy']], df[df['Sell']]
-        fig.add_trace(go.Scatter(x=buys.index, y=buys['Low']*0.98, mode='markers+text', text="AL", marker=dict(symbol='triangle-up', size=15, color='green'), name='AL'), row=1, col=1)
-        fig.add_trace(go.Scatter(x=sells.index, y=sells['High']*1.02, mode='markers+text', text="SAT", marker=dict(symbol='triangle-down', size=15, color='red'), name='SAT'), row=1, col=1)
+    # SuperTrend + AL/SAT Sinyalleri
+    if show_supertrend:
+        fig.add_trace(go.Scatter(x=df.index, y=df['ST_Line'],
+                                  line=dict(color='rgba(80,80,80,0.7)', width=2.5),
+                                  line_shape='hv', name='Trend Sınırı'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df[df['Buy']].index, y=df[df['Buy']]['Low'] * 0.98,
+                                  mode='markers+text', text="AL",
+                                  marker=dict(symbol='triangle-up', size=15, color='green'), name='AL'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df[df['Sell']].index, y=df[df['Sell']]['High'] * 1.02,
+                                  mode='markers+text', text="SAT",
+                                  marker=dict(symbol='triangle-down', size=15, color='red'), name='SAT'), row=1, col=1)
 
-    if 'BB_Upper' in df:
-        fig.add_trace(go.Scatter(x=df.index, y=df['BB_Upper'], line=dict(color='rgba(174,134,255,0.6)', width=1), name='BB Üst'), row=1, col=1)
-        fig.add_trace(go.Scatter(x=df.index, y=df['BB_Lower'], line=dict(color='rgba(174,134,255,0.6)', width=1), fill='tonexty', fillcolor='rgba(174,134,255,0.07)', name='BB Alt'), row=1, col=1)
+    # Divergence Okları (Ana grafik üzerinde)
+    if show_stochrsi:
+        bull_div = df[df['Bull_Div'] == True]
+        bear_div = df[df['Bear_Div'] == True]
+        if len(bull_div) > 0:
+            fig.add_trace(go.Scatter(x=bull_div.index, y=bull_div['Low'] * 0.99,
+                                      mode='markers+text', text="▲D",
+                                      textposition='bottom center', textfont=dict(size=9, color='#00e676'),
+                                      marker=dict(symbol='triangle-up', size=12, color='#00e676'),
+                                      name='Yükseliş Uyumsuzluğu'), row=1, col=1)
+        if len(bear_div) > 0:
+            fig.add_trace(go.Scatter(x=bear_div.index, y=bear_div['High'] * 1.01,
+                                      mode='markers+text', text="▼D",
+                                      textposition='top center', textfont=dict(size=9, color='#ff1744'),
+                                      marker=dict(symbol='triangle-down', size=12, color='#ff1744'),
+                                      name='Düşüş Uyumsuzluğu'), row=1, col=1)
 
-    # 3. Uyumsuzluk İşaretleri (▲D / ▼D)
-    if has_osc:
-        bull = df[df['Bull_Div']]
-        bear = df[df['Bear_Div']]
-        fig.add_trace(go.Scatter(x=bull.index, y=bull['Low']*0.99, mode='markers+text', text="▲D", textposition="bottom center", marker=dict(symbol='triangle-up', color='#00e676', size=12), name='Yük. Uyumsuzluk'), row=1, col=1)
-        fig.add_trace(go.Scatter(x=bear.index, y=bear['High']*1.01, mode='markers+text', text="▼D", textposition="top center", marker=dict(symbol='triangle-down', color='#ff1744', size=12), name='Düş. Uyumsuzluk'), row=1, col=1)
+    # SMA
+    if show_sma:
+        fig.add_trace(go.Scatter(x=df.index, y=df['SMA'],
+                                  line=dict(color='#ff9800', width=2), name=f'SMA({sma_len})'), row=1, col=1)
 
-    # 4. VRVP (Hacim Profili - Vektörel Hızlandırma)
-    if p['show_vrvp']:
-        bins = pd.cut(df['Close'], bins=p['v_bins'])
-        v_profile = df.groupby(bins, observed=False)['Volume'].sum()
-        fig.add_trace(go.Bar(x=v_profile.values, y=[b.mid for b in v_profile.index], orientation='h', marker_color='rgba(128,128,128,0.4)', showlegend=False), row=1, col=2)
+    # Bollinger Bands
+    if show_bb:
+        fig.add_trace(go.Scatter(x=df.index, y=df['BB_Upper'],
+                                  line=dict(color='rgba(174,134,255,0.6)', width=1), name='BB Üst'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['BB_Mid'],
+                                  line=dict(color='rgba(174,134,255,0.9)', width=1, dash='dot'), name='BB Orta'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['BB_Lower'],
+                                  line=dict(color='rgba(174,134,255,0.6)', width=1),
+                                  fill='tonexty', fillcolor='rgba(174,134,255,0.07)', name='BB Alt'), row=1, col=1)
 
-    # 5. Osilatör Paneli
-    if has_osc:
-        fig.add_trace(go.Scatter(x=df.index, y=df['Mom'], line=dict(color='#00c853', width=1.5), name='Momentum'), row=2, col=1)
-        fig.add_trace(go.Scatter(x=df.index, y=df['Mom_Signal'], line=dict(color='#ff1744', width=1.5), name='Sinyal'), row=2, col=1)
-        for val in [30, 20, 0, -20, -30]:
-            fig.add_hline(y=val, line_dash="dash", line_color="rgba(128,128,128,0.3)", row=2, col=1)
+    # Ichimoku
+    if show_ichimoku:
+        fig.add_trace(go.Scatter(x=df.index, y=df['Tenkan'],
+                                  line=dict(color='#0496ff', width=1), name='Tenkan-sen'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['Kijun'],
+                                  line=dict(color='#991515', width=1), name='Kijun-sen'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['Senkou_A'],
+                                  line=dict(color='rgba(67,160,71,0.5)', width=1), name='Senkou A'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['Senkou_B'],
+                                  line=dict(color='rgba(244,67,54,0.5)', width=1),
+                                  fill='tonexty', fillcolor='rgba(67,160,71,0.06)', name='Senkou B'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['Chikou'],
+                                  line=dict(color='#9c27b0', width=1, dash='dot'), name='Chikou'), row=1, col=1)
 
-    # Fibonacci Çizgileri
-    if p['show_fib'] and 'fib_levels' in p:
-        for label, val in p['fib_levels'].items():
-            fig.add_hline(y=val, line_dash="dot", line_color="rgba(128,128,128,0.5)", annotation_text=label, row=1, col=1)
+    # Fibonacci
+    if show_fib:
+        for l, p in fib.items():
+            fig.add_hline(y=p, line_dash="dash", line_color="rgba(128,128,128,0.5)",
+                          annotation_text=l, row=1, col=1)
 
-    fig.update_layout(height=1200, template='plotly_white', xaxis_rangeslider_visible=False, title=f"<b>{ticker}</b> Teknik Analizi")
+    # VRVP (Hacim Profili)
+    if show_vrvp:
+        bins = pd.cut(df['Close'], bins=v_bins, retbins=True)[1]
+        df['V_T'] = df.apply(lambda r: 'B' if r['Close'] >= r['Open'] else 'S', axis=1)
+        for i in range(v_bins):
+            m = (df['Close'] >= bins[i]) & (df['Close'] < bins[i + 1])
+            vb = df[m & (df['V_T'] == 'B')]['Volume'].sum()
+            vs = df[m & (df['V_T'] == 'S')]['Volume'].sum()
+            fig.add_trace(go.Bar(x=[vs], y=[(bins[i] + bins[i + 1]) / 2], orientation='h',
+                                  marker_color='rgba(239,83,80,0.4)', showlegend=False), row=1, col=2)
+            fig.add_trace(go.Bar(x=[vb], y=[(bins[i] + bins[i + 1]) / 2], orientation='h',
+                                  marker_color='rgba(38,166,154,0.4)', showlegend=False), row=1, col=2)
+
+    # Osilatör Paneli (Divergence Momentum)
+    if show_stochrsi:
+        import numpy as np
+        # Histogram barları (renk: pozitif artan=koyu yeşil, pozitif azalan=açık yeşil, negatif artan=açık kırmızı, negatif azalan=koyu kırmızı)
+        fig.add_trace(go.Scatter(x=df.index, y=df['Mom'],
+                                  line=dict(color='#00c853', width=1.5), name='Momentum'), row=2, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['Mom_Signal'],
+                                  line=dict(color='#ff1744', width=1.5), name='Sinyal'), row=2, col=1)
+        fig.add_hline(y=0, line_dash="solid", line_color="rgba(128,128,128,0.5)", row=2, col=1)
+        # Üst sınırlar (kırmızı - aşırı alım bölgesi)
+        fig.add_hline(y=30, line_dash="dash", line_color="rgba(255,23,68,0.5)",
+                      annotation_text="30", row=2, col=1)
+        fig.add_hline(y=20, line_dash="dot", line_color="rgba(255,23,68,0.3)", row=2, col=1)
+        # Alt sınırlar (yeşil - aşırı satım bölgesi)
+        fig.add_hline(y=-30, line_dash="dash", line_color="rgba(0,200,83,0.5)",
+                      annotation_text="-30", row=2, col=1)
+        fig.add_hline(y=-20, line_dash="dot", line_color="rgba(0,200,83,0.3)", row=2, col=1)
+
+        # Divergence işaretleri osilatör üzerinde
+        bull_div = df[df['Bull_Div'] == True]
+        bear_div = df[df['Bear_Div'] == True]
+        if len(bull_div) > 0:
+            fig.add_trace(go.Scatter(x=bull_div.index, y=bull_div['Mom'],
+                                      mode='markers', marker=dict(symbol='triangle-up', size=10, color='#00e676'),
+                                      name='Bull Div', showlegend=False), row=2, col=1)
+        if len(bear_div) > 0:
+            fig.add_trace(go.Scatter(x=bear_div.index, y=bear_div['Mom'],
+                                      mode='markers', marker=dict(symbol='triangle-down', size=10, color='#ff1744'),
+                                      name='Bear Div', showlegend=False), row=2, col=1)
+
+    fig.update_layout(template='plotly_white', height=1200,
+                      xaxis_rangeslider_visible=False, barmode='stack',
+                      title=f"<b>{ticker}</b> Teknik Analizi")
     return fig
 
+
 # ============================================================
-# 🕹️ KONTROL PANELİ VE REHBER (TAM METİN)
+# 🕹️ KONTROL PANELİ (WEB ARAYÜZÜ)
 # ============================================================
 st.sidebar.header("🛠️ Analiz Ayarları")
+
 Hisse = st.sidebar.text_input("Varlık Sembolü", value="GC=F")
 col1, col2 = st.sidebar.columns(2)
 Baslangic = col1.date_input("Başlangıç", value=datetime.now() - timedelta(days=60))
 Bitis = col2.date_input("Bitiş", value=datetime.now())
 Secilen_Periyot = st.sidebar.selectbox("Periyot", ["15m", "30m", "1h", "2h", "4h", "8h", "1d", "1wk"], index=4)
 
+# ============================================================
+# 📊 Gösterge Açma/Kapama
+# ============================================================
 st.sidebar.markdown("---")
 st.sidebar.subheader("📊 Göstergeler")
 
-params = {
-    'show_kama': st.sidebar.checkbox("KAMA", value=True),
-    'k_len': st.sidebar.slider("KAMA Hızı", 5, 50, 10),
-    'show_st': st.sidebar.checkbox("SuperTrend (AL/SAT)", value=True),
-    's_mult': st.sidebar.slider("Trend Çarpanı", 1.0, 5.0, 2.0, 0.5),
-    'show_osc': st.sidebar.checkbox("Divergence Osilatörü", value=True),
-    'osc_len': st.sidebar.slider("Divergence RSI Periyodu", 7, 30, 14),
-    'show_vrvp': st.sidebar.checkbox("VRVP (Hacim Profili)", value=True),
-    'v_bins': st.sidebar.slider("Hacim Detayı", 20, 100, 40),
-    'show_fib': st.sidebar.checkbox("Fibonacci Seviyeleri", value=True),
-    'f_look': st.sidebar.number_input("Fib Geriye Bakış (Mum)", value=100),
-    'show_sma': st.sidebar.checkbox("SMA", value=False), 'sma_len': 20,
-    'show_bb': st.sidebar.checkbox("Bollinger Bands", value=False), 'bb_len': 20, 'bb_std': 2.0,
-    'show_ichimoku': st.sidebar.checkbox("Ichimoku Cloud", value=False)
-}
+show_kama = st.sidebar.checkbox("KAMA", value=True)
+show_supertrend = st.sidebar.checkbox("SuperTrend (AL/SAT)", value=True)
+show_stochrsi = st.sidebar.checkbox("Divergence Osilatörü", value=True)
+show_fib = st.sidebar.checkbox("Fibonacci Seviyeleri", value=True)
+show_vrvp = st.sidebar.checkbox("VRVP (Hacim Profili)", value=True)
+show_sma = st.sidebar.checkbox("SMA", value=False)
+show_bb = st.sidebar.checkbox("Bollinger Bands", value=False)
+show_ichimoku = st.sidebar.checkbox("Ichimoku Cloud", value=False)
 
+# ============================================================
+# 🎯 Hassasiyet Ayarları
+# ============================================================
+st.sidebar.markdown("---")
+st.sidebar.subheader("🎯 Hassasiyet Ayarları")
+
+KAMA_HIZI = st.sidebar.slider("KAMA Hızı", 5, 50, 10) if show_kama else 10
+TREND_CARPAN = st.sidebar.slider("Trend Çarpanı", 1.0, 5.0, 2.0, 0.5) if show_supertrend else 2.0
+OSILATOR_PER = st.sidebar.slider("Divergence RSI Periyodu", 7, 30, 14) if show_stochrsi else 14
+HACIM_DETAY = st.sidebar.slider("Hacim Detayı", 20, 100, 40) if show_vrvp else 40
+FIB_BAKIS = st.sidebar.number_input("Fib Geriye Bakış (Mum)", value=100) if show_fib else 100
+
+SMA_LEN = st.sidebar.slider("SMA Periyodu", 5, 200, 20) if show_sma else 20
+BB_LEN = st.sidebar.slider("BB Periyodu", 5, 50, 20) if show_bb else 20
+BB_STD = st.sidebar.slider("BB Standart Sapma", 1.0, 4.0, 2.0, 0.5) if show_bb else 2.0
+
+# ============================================================
+# 🚀 Analizi Başlat
+# ============================================================
 if st.sidebar.button("Analizi Başlat"):
     with st.spinner('Veriler hesaplanıyor...'):
-        df = get_clean_data(Hisse, Baslangic, Bitis, Secilen_Periyot)
-        if df is not None:
-            df = calculate_all_indicators(df, params)
-            fig = create_trading_plot(df, Hisse, params)
+        fig = create_complete_trading_chart(
+            Hisse, Baslangic, Bitis, Secilen_Periyot,
+            KAMA_HIZI, TREND_CARPAN, OSILATOR_PER, HACIM_DETAY, FIB_BAKIS,
+            show_kama, show_supertrend, show_stochrsi, show_fib, show_vrvp,
+            show_sma, SMA_LEN, show_bb, BB_LEN, BB_STD,
+            show_ichimoku
+        )
+        if fig:
             st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.error("Veri bulunamadı!")
 else:
-    st.info("Analiz yapmak için sol paneldeki 'Analizi Başlat' butonuna tıklayın. Varlık sembolünü bilmiyorsanız gemini'ye yfinance .... tickerı nedir yazın. Uygulama yatırım tavsiyesi içermez. Ücretsizdir.")
+    st.info("Analiz yapmak için sol paneldeki 'Analizi Başlat' butonuna tıklayın. Varlık sembolünü bilmiyorsanız gemini'ye yfinance ...... tickerı nedir yazın. Uygulama yatırım tavsiyesi içermez. Ücretsizdir.")
 
-    # REHBER KISMI - TAM VE EKSİKSİZ
     st.markdown("""
     ---
-     ### 📖 Teknik Analiz Klavuzu
+    ### 📖 Teknik Analiz Klavuzu
 
     #### 🚀 Sinyaller ve Oklar
     * **Büyük Üçgenler (AL/SAT):** SuperTrend indikatörünün ana trend onay sinyalleridir.
@@ -261,7 +440,6 @@ else:
 
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
-
 
 
 
