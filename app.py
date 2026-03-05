@@ -71,7 +71,7 @@ def calculate_all_indicators(df, p):
             df['BB_Lower'] = bbands.iloc[:, 0]
 
     # Ichimoku (Sütun Güvenliği Sağlandı)
-    if p['show_ichi']:
+    if p['show_ichimoku']:
         ichi, _ = ta.ichimoku(df['High'], df['Low'], df['Close'])
         if ichi is not None:
             df['Tenkan'] = ichi.iloc[:, 0]
@@ -193,6 +193,7 @@ if st.sidebar.button("Analizi Başlat"):
 else:
     st.info("Analiz yapmak için sol paneldeki 'Analizi Başlat' butonuna tıklayın. Varlık sembolünü bilmiyorsanız gemini'ye yfinance tickerı nedir yazın. Uygulama yatırım tavsiyesi içermez. Ücretsizdir.")
 
+    # REHBER KISMI - TAM VE EKSİKSİZ
     st.markdown("""
     ---
     ### 📖 Teknik Analiz Klavuzu
