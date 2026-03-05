@@ -1,6 +1,7 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
+import numpy as np
 import pandas_ta as ta
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -65,7 +66,6 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
     # Divergence Osilatörü (Momentum + Uyumsuzluk Tespiti)
     if show_stochrsi:
         try:
-            import numpy as np
             rsi_raw = ta.rsi(df['Close'], length=srsi_len)
             if rsi_raw is not None:
                 df['Mom'] = rsi_raw - 50  # Sıfır merkezli momentum
@@ -79,23 +79,25 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                 df['Mom_Swing_Low'] = df['Mom'][(df['Mom'].shift(lookback) > df['Mom']) & (df['Mom'].shift(-lookback) > df['Mom'])]
                 df['Mom_Swing_High'] = df['Mom'][(df['Mom'].shift(lookback) < df['Mom']) & (df['Mom'].shift(-lookback) < df['Mom'])]
 
-                # Bullish Divergence: fiyat düşük dip, osilatör yüksek dip
+                # Bullish / Bearish Divergence — vektörel tespit
                 df['Bull_Div'] = False
                 df['Bear_Div'] = False
-                swing_low_idx = df.dropna(subset=['Swing_Low']).index
-                swing_high_idx = df.dropna(subset=['Swing_High']).index
 
-                for i in range(1, len(swing_low_idx)):
-                    prev, curr = swing_low_idx[i-1], swing_low_idx[i]
-                    if (df.loc[curr, 'Close'] < df.loc[prev, 'Close'] and
-                        df.loc[curr, 'Mom'] > df.loc[prev, 'Mom']):
-                        df.loc[curr, 'Bull_Div'] = True
+                sl_idx = df.dropna(subset=['Swing_Low']).index
+                if len(sl_idx) > 1:
+                    sl_close = df['Close'].reindex(sl_idx)
+                    sl_mom   = df['Mom'].reindex(sl_idx)
+                    bull_mask = (sl_close.values[1:] < sl_close.values[:-1]) & \
+                                (sl_mom.values[1:]   > sl_mom.values[:-1])
+                    df.loc[sl_idx[1:][bull_mask], 'Bull_Div'] = True
 
-                for i in range(1, len(swing_high_idx)):
-                    prev, curr = swing_high_idx[i-1], swing_high_idx[i]
-                    if (df.loc[curr, 'Close'] > df.loc[prev, 'Close'] and
-                        df.loc[curr, 'Mom'] < df.loc[prev, 'Mom']):
-                        df.loc[curr, 'Bear_Div'] = True
+                sh_idx = df.dropna(subset=['Swing_High']).index
+                if len(sh_idx) > 1:
+                    sh_close = df['Close'].reindex(sh_idx)
+                    sh_mom   = df['Mom'].reindex(sh_idx)
+                    bear_mask = (sh_close.values[1:] > sh_close.values[:-1]) & \
+                                (sh_mom.values[1:]   < sh_mom.values[:-1])
+                    df.loc[sh_idx[1:][bear_mask], 'Bear_Div'] = True
             else:
                 show_stochrsi = False
         except Exception as e:
@@ -148,28 +150,23 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                 show_ichimoku = False
             else:
                 cols = ichi_df.columns.tolist()
-                # iloc ile pozisyon bazlı erişim (en güvenli)
-                if len(cols) >= 5:
-                    df['Tenkan'] = ichi_df.iloc[:, 0]
-                    df['Kijun'] = ichi_df.iloc[:, 3]
-                    df['Senkou_A'] = ichi_df.iloc[:, 0]
-                    df['Senkou_B'] = ichi_df.iloc[:, 1]
-                    df['Chikou'] = ichi_df.iloc[:, 4]
-                    # İsim bazlı düzeltme (varsa)
-                    for c in cols:
-                        cl = c.upper()
-                        if 'ITS' in cl:
-                            df['Tenkan'] = ichi_df[c]
-                        elif 'IKS' in cl:
-                            df['Kijun'] = ichi_df[c]
-                        elif 'ISA' in cl:
-                            df['Senkou_A'] = ichi_df[c]
-                        elif 'ISB' in cl:
-                            df['Senkou_B'] = ichi_df[c]
-                        elif 'ICS' in cl:
-                            df['Chikou'] = ichi_df[c]
-                else:
-                    st.warning(f"Ichimoku beklenen 5 sütun yerine {len(cols)} sütun döndürdü: {cols}")
+                # Sadece isim bazlı erişim — iloc çakışmasını önler
+                for c in cols:
+                    cl = c.upper()
+                    if 'ITS' in cl:
+                        df['Tenkan'] = ichi_df[c]
+                    elif 'IKS' in cl:
+                        df['Kijun'] = ichi_df[c]
+                    elif 'ISA' in cl:
+                        df['Senkou_A'] = ichi_df[c]
+                    elif 'ISB' in cl:
+                        df['Senkou_B'] = ichi_df[c]
+                    elif 'ICS' in cl:
+                        df['Chikou'] = ichi_df[c]
+                # Atama kontrolü
+                required = ['Tenkan', 'Kijun', 'Senkou_A', 'Senkou_B', 'Chikou']
+                if not all(c in df.columns for c in required):
+                    st.warning(f"Ichimoku sütunları eşleşmedi: {cols}")
                     show_ichimoku = False
         except Exception as e:
             st.warning(f"Ichimoku hesaplama hatası: {e}")
@@ -280,7 +277,6 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
 
     # Osilatör Paneli (Divergence Momentum)
     if show_stochrsi:
-        import numpy as np
         # Histogram barları (renk: pozitif artan=koyu yeşil, pozitif azalan=açık yeşil, negatif artan=açık kırmızı, negatif azalan=koyu kırmızı)
         fig.add_trace(go.Scatter(x=df.index, y=df['Mom'],
                                   line=dict(color='#00c853', width=1.5), name='Momentum'), row=2, col=1)
@@ -440,6 +436,3 @@ else:
 
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
-
-
-
