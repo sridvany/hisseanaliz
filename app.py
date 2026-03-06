@@ -341,7 +341,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
         xaxis_rangeslider_visible=False, 
         barmode='stack',
         title=f"<b>{ticker}</b> Teknik Analizi",
-        margin=dict(l=10, r=20, t=50, b=10), 
+        margin=dict(l=10, r=0, t=50, b=10), 
         legend=dict(
             font=dict(size=11),       
             itemwidth=30,             
@@ -481,3 +481,4 @@ else:
 
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
+
