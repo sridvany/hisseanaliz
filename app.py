@@ -323,22 +323,33 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                                       mode='markers', marker=dict(symbol='triangle-down', size=10, color='#ff1744'),
                                       name='Bear Div', showlegend=False), row=2, col=1)
 
-    # YENİ EKLENEN/GÜNCELLENEN KISIM: Legend'ı daraltıp kenar boşluklarını azalttık
+    # YENİ EKLENEN KISIM: Legend'ın altına not eklemek için görünmez (dummy) veri seti
+    if not df.empty:
+        fig.add_trace(go.Scatter(
+            x=[df.index[0]], y=[df['Close'].iloc[0]], 
+            mode='lines',
+            line=dict(color='rgba(0,0,0,0)', width=0), # Çizgi tamamen görünmez
+            name='<span style="font-size:10px; color:gray;"><i>* Üstüne tıklayarak<br>indikatörü kapatabilirsiniz</i></span>',
+            showlegend=True,
+            hoverinfo='skip' # Mouse üzerine gelince etkileşim olmasın
+        ), row=1, col=1)
+
+    # Layout (Düzen) Ayarları
     fig.update_layout(
         template='plotly_white', 
         height=1200,
         xaxis_rangeslider_visible=False, 
         barmode='stack',
         title=f"<b>{ticker}</b> Teknik Analizi",
-        margin=dict(l=10, r=20, t=50, b=10), # Grafiğin sağına ve soluna yayılması için boşlukları kıstık
+        margin=dict(l=10, r=20, t=50, b=10), 
         legend=dict(
-            font=dict(size=11),       # Liste yazısını küçülttük
-            itemwidth=30,             # Gösterge çizgilerini kısalttık
-            x=1.01,                   # Listeyi grafiğe sıfır yanaştırdık
+            font=dict(size=11),       
+            itemwidth=30,             
+            x=1.01,                   
             xanchor='left',
             y=1,
             yanchor='top',
-            bgcolor='rgba(255,255,255,0.6)' # Zemin rengini çok hafif şeffaf yaptık
+            bgcolor='rgba(255,255,255,0.6)' 
         )
     )
     return fig
