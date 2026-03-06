@@ -323,10 +323,24 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                                       mode='markers', marker=dict(symbol='triangle-down', size=10, color='#ff1744'),
                                       name='Bear Div', showlegend=False), row=2, col=1)
 
-    fig.update_layout(template='plotly_white', height=1200,
-                      xaxis_rangeslider_visible=False, barmode='stack',
-                      title=f"<b>{ticker}</b> Teknik Analizi",
-                      margin=dict(r=50)) # Sağ tarafta etiketlerin kesilmemesi için küçük bir boşluk eklendi
+    # YENİ EKLENEN/GÜNCELLENEN KISIM: Legend'ı daraltıp kenar boşluklarını azalttık
+    fig.update_layout(
+        template='plotly_white', 
+        height=1200,
+        xaxis_rangeslider_visible=False, 
+        barmode='stack',
+        title=f"<b>{ticker}</b> Teknik Analizi",
+        margin=dict(l=10, r=20, t=50, b=10), # Grafiğin sağına ve soluna yayılması için boşlukları kıstık
+        legend=dict(
+            font=dict(size=11),       # Liste yazısını küçülttük
+            itemwidth=30,             # Gösterge çizgilerini kısalttık
+            x=1.01,                   # Listeyi grafiğe sıfır yanaştırdık
+            xanchor='left',
+            y=1,
+            yanchor='top',
+            bgcolor='rgba(255,255,255,0.6)' # Zemin rengini çok hafif şeffaf yaptık
+        )
+    )
     return fig
 
 
