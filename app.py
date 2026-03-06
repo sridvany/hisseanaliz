@@ -256,11 +256,30 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
         fig.add_trace(go.Scatter(x=df.index, y=df['Chikou'],
                                   line=dict(color='#9c27b0', width=1, dash='dot'), name='Chikou'), row=1, col=1)
 
-    # Fibonacci
+    # Fibonacci (Sağda, Turuncu Kutu, Siyah Yazı)
     if show_fib:
         for l, p in fib.items():
             fig.add_hline(y=p, line_dash="dash", line_color="rgba(128,128,128,0.5)",
-                          annotation_text=l, row=1, col=1)
+                          annotation_text=f"{l} ({p:.2f})", 
+                          annotation_position="right",
+                          annotation_bgcolor="orange", 
+                          annotation_font_color="black", 
+                          row=1, col=1)
+
+    # Son Fiyat Gösterimi (Sağda, Yön Rengine Göre Kutu, Siyah Yazı)
+    if not df.empty:
+        last_close = df['Close'].iloc[-1]
+        prev_close = df['Close'].iloc[-2] if len(df) > 1 else df['Open'].iloc[-1]
+        
+        # Yükseliş varsa yeşil, düşüş varsa kırmızı arka plan
+        price_color = "#00e676" if last_close >= prev_close else "#ff1744" 
+        
+        fig.add_hline(y=last_close, line_dash="dot", line_width=1, line_color=price_color,
+                      annotation_text=f"{last_close:.2f}", 
+                      annotation_position="right",
+                      annotation_bgcolor=price_color, 
+                      annotation_font_color="black",
+                      row=1, col=1)
 
     # VRVP (Hacim Profili)
     if show_vrvp:
@@ -277,7 +296,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
 
     # Osilatör Paneli (Divergence Momentum)
     if show_stochrsi:
-        # Histogram barları (renk: pozitif artan=koyu yeşil, pozitif azalan=açık yeşil, negatif artan=açık kırmızı, negatif azalan=koyu kırmızı)
+        # Histogram barları
         fig.add_trace(go.Scatter(x=df.index, y=df['Mom'],
                                   line=dict(color='#00c853', width=1.5), name='Momentum'), row=2, col=1)
         fig.add_trace(go.Scatter(x=df.index, y=df['Mom_Signal'],
@@ -306,7 +325,8 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
 
     fig.update_layout(template='plotly_white', height=1200,
                       xaxis_rangeslider_visible=False, barmode='stack',
-                      title=f"<b>{ticker}</b> Teknik Analizi")
+                      title=f"<b>{ticker}</b> Teknik Analizi",
+                      margin=dict(r=50)) # Sağ tarafta etiketlerin kesilmemesi için küçük bir boşluk eklendi
     return fig
 
 
@@ -419,12 +439,12 @@ else:
     #### ⏱ Zaman Dilimi ve Geçmiş Veri Limitleri
     * **Seçenekler:** `15m`, `30m`, `1h`, `2h`, `4h`, `8h`, `1d`
     * **Maksimum Geriye Dönük Süreler:**
-    *   · **1m:** 7 gün
-    *   · **2m / 5m / 15m / 30m / 90m:** 60 gün
-    *   · **1h:** 730 gün
-    *   · **2h / 4h / 8h:** 60 gün (1h veriden türetilir)
-    *   · **1d:** Sınırsız
-    *   · **1w:** Sınırsız
+    * · **1m:** 7 gün
+    * · **2m / 5m / 15m / 30m / 90m:** 60 gün
+    * · **1h:** 730 gün
+    * · **2h / 4h / 8h:** 60 gün (1h veriden türetilir)
+    * · **1d:** Sınırsız
+    * · **1w:** Sınırsız
 
     #### 🔍 Ticker (Sembol) Seçimi
     * **Borsa İstanbul:** Sembolün sonuna `.IS` ekleyin. Örn: `THYAO.IS`, `ASELS.IS`, `TUPRS.IS`
