@@ -323,13 +323,13 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                                       mode='markers', marker=dict(symbol='triangle-down', size=10, color='#ff1744'),
                                       name='Bear Div', showlegend=False), row=2, col=1)
 
-    # YENİ EKLENEN KISIM: Legend'ın altına not eklemek için görünmez (dummy) veri seti
+    # GÜNCELLENEN KISIM: Legend notu daha büyük, kalın ve kırmızı renkte.
     if not df.empty:
         fig.add_trace(go.Scatter(
             x=[df.index[0]], y=[df['Close'].iloc[0]], 
             mode='lines',
             line=dict(color='rgba(0,0,0,0)', width=0), # Çizgi tamamen görünmez
-            name='<span style="font-size:10px; color:gray;"><i>* Üstüne tıklayarak<br>indikatörü kapatabilirsiniz</i></span>',
+            name='<span style="font-size:12px; color:red; font-weight:bold;">* Üstüne tıklayarak<br>indikatörü kapatabilirsiniz</span>',
             showlegend=True,
             hoverinfo='skip' # Mouse üzerine gelince etkileşim olmasın
         ), row=1, col=1)
