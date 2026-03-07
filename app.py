@@ -173,11 +173,22 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
             show_ichimoku = False
 
     # Fibonacci
+    # Fibonacci
     fib = {}
     if show_fib:
         f_df = df if f_look is None else df.tail(f_look)
         hi, lo = f_df['High'].max(), f_df['Low'].min()
-        fib = {'23.6%': hi - 0.236 * (hi - lo), '38.2%': hi - 0.382 * (hi - lo), '50%': hi - 0.5 * (hi - lo)}
+        
+        # Farkı (range) bir değişkene atamak kodu daha okunaklı yapar
+        diff = hi - lo
+        
+        fib = {
+            '23.6%': hi - 0.236 * diff, 
+            '38.2%': hi - 0.382 * diff, 
+            '50.0%': hi - 0.500 * diff,
+            '61.8%': hi - 0.618 * diff,
+            '78.6%': hi - 0.786 * diff
+        }
 
     # ============================================================
     # 4. Görselleştirme
@@ -481,4 +492,5 @@ else:
 
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
+
 
