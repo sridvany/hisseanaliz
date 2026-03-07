@@ -203,12 +203,13 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                         vertical_spacing=0.05, horizontal_spacing=0.01)
 
     # GÜNCELLEME 2: Mum veya Çizgi Grafiği Mantığı
+  
     if chart_type == "Mum (Candlestick)":
         fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'],
                                       low=df['Low'], close=df['Close'], name='Fiyat'), row=1, col=1)
     else:
         fig.add_trace(go.Scatter(x=df.index, y=df['Close'], mode='lines',
-                                  line=dict(color='#2962ff', width=2), name='Fiyat (Kapanış)'), row=1, col=1)
+                                  line=dict(color='#ff1744', width=2), name='Fiyat (Kapanış)'), row=1, col=1)
 
     # KAMA
     if show_kama:
@@ -507,3 +508,4 @@ else:
 
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
+
