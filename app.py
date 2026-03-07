@@ -203,7 +203,6 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                         vertical_spacing=0.05, horizontal_spacing=0.01)
 
     # GÜNCELLEME 2: Mum veya Çizgi Grafiği Mantığı
-  
     if chart_type == "Mum (Candlestick)":
         fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'],
                                       low=df['Low'], close=df['Close'], name='Fiyat'), row=1, col=1)
@@ -345,7 +344,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                                       mode='markers', marker=dict(symbol='triangle-down', size=10, color='#ff1744'),
                                       name='Bear Div', showlegend=False), row=2, col=1)
 
-    # Legend notu daha büyük, kalın ve kırmızı renkte.
+    # Legend notu
     if not df.empty:
         fig.add_trace(go.Scatter(
             x=[df.index[0]], y=[df['Close'].iloc[0]], 
@@ -356,14 +355,26 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
             hoverinfo='skip' # Mouse üzerine gelince etkileşim olmasın
         ), row=1, col=1)
 
-    # Layout (Düzen) Ayarları
+    # ============================================================
+    # TRADINGVIEW BENZERİ PAN/SCROLL İÇİN GÜNCELLENEN LAYOUT
+    # ============================================================
+    
+    # Ekranda görünecek başlangıç mum sayısı (X eksenini kısıtlar, kalanı scroll'a bırakır)
+    visible_candles = 100
+    if not df.empty and len(df) > visible_candles:
+        view_start = df.index[-visible_candles]
+        view_end = df.index[-1]
+    else:
+        view_start = df.index[0] if not df.empty else datetime.now() - timedelta(days=30)
+        view_end = df.index[-1] if not df.empty else datetime.now()
+
     fig.update_layout(
         template='plotly_white', 
         height=1200,
-        xaxis_rangeslider_visible=False, 
+        dragmode='pan', # Sürüklemeyi Pan (yatay kaydırma) moduna alır
         barmode='stack',
         title=f"<b>{ticker}</b> Teknik Analizi",
-        margin=dict(l=10, r=0, t=50, b=10), 
+        margin=dict(l=10, r=60, t=50, b=10), # Sağ marj (r) y ekseni için genişletildi
         legend=dict(
             font=dict(size=11),       
             itemwidth=30,             
@@ -372,8 +383,25 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
             y=1,
             yanchor='top',
             bgcolor='rgba(255,255,255,0.6)' 
+        ),
+        # X Ekseni Ayarları
+        xaxis=dict(
+            range=[view_start, view_end], # Başlangıçta 100 mum görünür
+            rangeslider=dict(visible=False), 
+            fixedrange=False, 
+            autorange=False
+        ),
+        # Y Ekseni Ayarları
+        yaxis=dict(
+            side="right", # Fiyat skalasını sağa al (Tradingview tarzı)
+            fixedrange=False, 
+            autorange=True # Kaydırdıkça fiyatın otomatik ölçeklenmesini sağlar
         )
     )
+    
+    # Alt grafiğin ve üst grafiğin X eksenini birbirine bağla (senkronize kaydırma)
+    fig.update_xaxes(matches='x')
+
     return fig
 
 
@@ -437,7 +465,9 @@ if st.sidebar.button("Analizi Başlat"):
             show_ichimoku, GRAFIK_TIPI # GÜNCELLEME 4: Parametre buraya eklendi
         )
         if fig:
-            st.plotly_chart(fig, use_container_width=True)
+            # SADECE BURASI GÜNCELLENDİ: Plotly grafiğine scrollZoom yeteneği eklendi
+            config = {'scrollZoom': True, 'displayModeBar': True}
+            st.plotly_chart(fig, use_container_width=True, config=config)
 else:
     st.info("Analiz yapmak için sol paneldeki 'Analizi Başlat' butonuna tıklayın. Varlık sembolünü bilmiyorsanız gemini'ye yfinance ...... tickerı nedir yazın. Uygulama yatırım tavsiyesi içermez. Ücretsizdir.")
 
@@ -508,4 +538,3 @@ else:
 
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
-
