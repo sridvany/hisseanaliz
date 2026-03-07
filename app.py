@@ -10,10 +10,11 @@ from datetime import datetime, timedelta
 # Sayfa Genişliği Ayarı
 st.set_page_config(layout="wide", page_title="AI Teknik Analiz Terminali")
 
+# GÜNCELLEME 1: Fonksiyona 'chart_type' parametresi eklendi
 def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_len, v_bins, f_look,
                                    show_kama, show_supertrend, show_stochrsi, show_fib, show_vrvp,
                                    show_sma, sma1_len, sma2_len, show_bb, bb_len, bb_std,
-                                   show_ichimoku):
+                                   show_ichimoku, chart_type):
     # 1. Veri Çekme (resampling gereken periyotlar için 1h çekip dönüştürme)
     resample_map = {"2h": "2h", "4h": "4h", "8h": "8h"}
     raw_p = "1h" if per in resample_map else per
@@ -201,9 +202,13 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                         column_widths=[0.85, 0.15], row_heights=row_heights,
                         vertical_spacing=0.05, horizontal_spacing=0.01)
 
-    # Mum Grafiği
-    fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'],
-                                  low=df['Low'], close=df['Close'], name='Fiyat'), row=1, col=1)
+    # GÜNCELLEME 2: Mum veya Çizgi Grafiği Mantığı
+    if chart_type == "Mum (Candlestick)":
+        fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'],
+                                      low=df['Low'], close=df['Close'], name='Fiyat'), row=1, col=1)
+    else:
+        fig.add_trace(go.Scatter(x=df.index, y=df['Close'], mode='lines',
+                                  line=dict(color='#2962ff', width=2), name='Fiyat (Kapanış)'), row=1, col=1)
 
     # KAMA
     if show_kama:
@@ -382,6 +387,10 @@ Baslangic = col1.date_input("Başlangıç", value=datetime.now() - timedelta(day
 Bitis = col2.date_input("Bitiş", value=datetime.now())
 Secilen_Periyot = st.sidebar.selectbox("Periyot", ["15m", "30m", "1h", "2h", "4h", "8h", "1d", "1wk"], index=4)
 
+# GÜNCELLEME 3: Grafik tipi seçimi buraya eklendi
+st.sidebar.markdown("---")
+GRAFIK_TIPI = st.sidebar.radio("Grafik Görünümü", ["Mum (Candlestick)", "Çizgi (Line)"], horizontal=True)
+
 # ============================================================
 # 📊 Gösterge Açma/Kapama
 # ============================================================
@@ -424,7 +433,7 @@ if st.sidebar.button("Analizi Başlat"):
             KAMA_HIZI, TREND_CARPAN, OSILATOR_PER, HACIM_DETAY, FIB_BAKIS,
             show_kama, show_supertrend, show_stochrsi, show_fib, show_vrvp,
             show_sma, SMA_1_LEN, SMA_2_LEN, show_bb, BB_LEN, BB_STD,
-            show_ichimoku
+            show_ichimoku, GRAFIK_TIPI # GÜNCELLEME 4: Parametre buraya eklendi
         )
         if fig:
             st.plotly_chart(fig, use_container_width=True)
