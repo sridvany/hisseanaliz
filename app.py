@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 # Sayfa Genişliği Ayarı
 st.set_page_config(layout="wide", page_title="AI Teknik Analiz Terminali")
 
+# GÜNCELLEME 1: Fonksiyona 'chart_type' parametresi eklendi
 def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_len, v_bins, f_look,
                                    show_kama, show_supertrend, show_stochrsi, show_fib, show_vrvp,
                                    show_sma, sma1_len, sma2_len, show_bb, bb_len, bb_std,
@@ -68,16 +69,18 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
         try:
             rsi_raw = ta.rsi(df['Close'], length=srsi_len)
             if rsi_raw is not None:
-                df['Mom'] = rsi_raw - 50  
-                df['Mom_Signal'] = ta.ema(df['Mom'], length=9)  
-                df['Mom_Hist'] = df['Mom'] - df['Mom_Signal']  
+                df['Mom'] = rsi_raw - 50  # Sıfır merkezli momentum
+                df['Mom_Signal'] = ta.ema(df['Mom'], length=9)  # Sinyal çizgisi
+                df['Mom_Hist'] = df['Mom'] - df['Mom_Signal']  # Histogram
 
+                # Swing noktaları ile uyumsuzluk tespiti
                 lookback = 5
                 df['Swing_Low'] = df['Close'][(df['Close'].shift(lookback) > df['Close']) & (df['Close'].shift(-lookback) > df['Close'])]
                 df['Swing_High'] = df['Close'][(df['Close'].shift(lookback) < df['Close']) & (df['Close'].shift(-lookback) < df['Close'])]
                 df['Mom_Swing_Low'] = df['Mom'][(df['Mom'].shift(lookback) > df['Mom']) & (df['Mom'].shift(-lookback) > df['Mom'])]
                 df['Mom_Swing_High'] = df['Mom'][(df['Mom'].shift(lookback) < df['Mom']) & (df['Mom'].shift(-lookback) < df['Mom'])]
 
+                # Bullish / Bearish Divergence — vektörel tespit
                 df['Bull_Div'] = False
                 df['Bear_Div'] = False
 
@@ -142,15 +145,18 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
     if show_ichimoku:
         try:
             ichi_result = ta.ichimoku(df['High'], df['Low'], df['Close'])
+            # tuple ise ilk elemanı al, değilse direkt kullan
             if isinstance(ichi_result, tuple):
                 ichi_df = ichi_result[0]
             else:
                 ichi_df = ichi_result
+            # None kontrolü
             if ichi_df is None or not hasattr(ichi_df, 'columns'):
                 st.warning("Ichimoku hesaplanamadı (veri yetersiz olabilir).")
                 show_ichimoku = False
             else:
                 cols = ichi_df.columns.tolist()
+                # Sadece isim bazlı erişim — iloc çakışmasını önler
                 for c in cols:
                     cl = c.upper()
                     if 'ITS' in cl:
@@ -163,6 +169,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                         df['Senkou_B'] = ichi_df[c]
                     elif 'ICS' in cl:
                         df['Chikou'] = ichi_df[c]
+                # Atama kontrolü
                 required = ['Tenkan', 'Kijun', 'Senkou_A', 'Senkou_B', 'Chikou']
                 if not all(c in df.columns for c in required):
                     st.warning(f"Ichimoku sütunları eşleşmedi: {cols}")
@@ -195,6 +202,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                         column_widths=[0.85, 0.15], row_heights=row_heights,
                         vertical_spacing=0.05, horizontal_spacing=0.01)
 
+    # GÜNCELLEME 2: Mum veya Çizgi Grafiği Mantığı
     if chart_type == "Mum (Candlestick)":
         fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'],
                                       low=df['Low'], close=df['Close'], name='Fiyat'), row=1, col=1)
@@ -219,7 +227,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                                   mode='markers+text', text="SAT",
                                   marker=dict(symbol='triangle-down', size=15, color='red'), name='SAT'), row=1, col=1)
 
-    # Divergence Okları 
+    # Divergence Okları (Ana grafik üzerinde)
     if show_stochrsi:
         bull_div = df[df['Bull_Div'] == True]
         bear_div = df[df['Bear_Div'] == True]
@@ -269,7 +277,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
         fig.add_trace(go.Scatter(x=df.index, y=df['Chikou'],
                                   line=dict(color='#9c27b0', width=1, dash='dot'), name='Chikou'), row=1, col=1)
 
-    # Fibonacci 
+    # Fibonacci (Sağda, Turuncu Kutu, Siyah Yazı)
     if show_fib:
         for l, p in fib.items():
             fig.add_hline(y=p, line_dash="dash", line_color="rgba(128,128,128,0.5)",
@@ -279,11 +287,12 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                           annotation_font_color="black", 
                           row=1, col=1)
 
-    # Son Fiyat Gösterimi 
+    # Son Fiyat Gösterimi (Sağda, Yön Rengine Göre Kutu, Siyah Yazı)
     if not df.empty:
         last_close = df['Close'].iloc[-1]
         prev_close = df['Close'].iloc[-2] if len(df) > 1 else df['Open'].iloc[-1]
         
+        # Yükseliş varsa yeşil, düşüş varsa kırmızı arka plan
         price_color = "#00e676" if last_close >= prev_close else "#ff1744" 
         
         fig.add_hline(y=last_close, line_dash="dot", line_width=1, line_color=price_color,
@@ -306,22 +315,24 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
             fig.add_trace(go.Bar(x=[vb], y=[(bins[i] + bins[i + 1]) / 2], orientation='h',
                                   marker_color='rgba(38,166,154,0.4)', showlegend=False), row=1, col=2)
 
-    # Osilatör Paneli
+    # Osilatör Paneli (Divergence Momentum)
     if show_stochrsi:
+        # Histogram barları
         fig.add_trace(go.Scatter(x=df.index, y=df['Mom'],
                                   line=dict(color='#00c853', width=1.5), name='Momentum'), row=2, col=1)
         fig.add_trace(go.Scatter(x=df.index, y=df['Mom_Signal'],
                                   line=dict(color='#ff1744', width=1.5), name='Sinyal'), row=2, col=1)
         fig.add_hline(y=0, line_dash="solid", line_color="rgba(128,128,128,0.5)", row=2, col=1)
-        
+        # Üst sınırlar (kırmızı - aşırı alım bölgesi)
         fig.add_hline(y=30, line_dash="dash", line_color="rgba(255,23,68,0.5)",
                       annotation_text="30", row=2, col=1)
         fig.add_hline(y=20, line_dash="dot", line_color="rgba(255,23,68,0.3)", row=2, col=1)
-        
+        # Alt sınırlar (yeşil - aşırı satım bölgesi)
         fig.add_hline(y=-30, line_dash="dash", line_color="rgba(0,200,83,0.5)",
                       annotation_text="-30", row=2, col=1)
         fig.add_hline(y=-20, line_dash="dot", line_color="rgba(0,200,83,0.3)", row=2, col=1)
 
+        # Divergence işaretleri osilatör üzerinde
         bull_div = df[df['Bull_Div'] == True]
         bear_div = df[df['Bear_Div'] == True]
         if len(bull_div) > 0:
@@ -338,15 +349,17 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
         fig.add_trace(go.Scatter(
             x=[df.index[0]], y=[df['Close'].iloc[0]], 
             mode='lines',
-            line=dict(color='rgba(0,0,0,0)', width=0), 
+            line=dict(color='rgba(0,0,0,0)', width=0), # Çizgi tamamen görünmez
             name='<span style="font-size:12px; color:red; font-weight:bold;">* Üstüne tıklayarak<br>indikatörü kapatabilirsiniz</span>',
             showlegend=True,
-            hoverinfo='skip' 
+            hoverinfo='skip' # Mouse üzerine gelince etkileşim olmasın
         ), row=1, col=1)
 
     # ============================================================
     # TRADINGVIEW BENZERİ PAN/SCROLL İÇİN GÜNCELLENEN LAYOUT
     # ============================================================
+    
+    # Ekranda görünecek başlangıç mum sayısı (X eksenini kısıtlar, kalanı scroll'a bırakır)
     visible_candles = 100
     if not df.empty and len(df) > visible_candles:
         view_start = df.index[-visible_candles]
@@ -358,11 +371,10 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
     fig.update_layout(
         template='plotly_white', 
         height=1200,
-        dragmode='pan', 
+        dragmode='pan', # Sürüklemeyi Pan (yatay kaydırma) moduna alır
         barmode='stack',
         title=f"<b>{ticker}</b> Teknik Analizi",
-        # GÜNCELLEME: b=10 çok dardı, b=50 yapıldı (Tarihler tam sığsın diye)
-        margin=dict(l=10, r=60, t=50, b=50), 
+        margin=dict(l=10, r=60, t=50, b=10), # Sağ marj (r) y ekseni için genişletildi
         legend=dict(
             font=dict(size=11),       
             itemwidth=30,             
@@ -372,23 +384,23 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
             yanchor='top',
             bgcolor='rgba(255,255,255,0.6)' 
         ),
+        # X Ekseni Ayarları
+        xaxis=dict(
+            range=[view_start, view_end], # Başlangıçta 100 mum görünür
+            rangeslider=dict(visible=False), 
+            fixedrange=False, 
+            autorange=False
+        ),
         # Y Ekseni Ayarları
         yaxis=dict(
-            side="right", 
+            side="right", # Fiyat skalasını sağa al (Tradingview tarzı)
             fixedrange=False, 
-            autorange=True 
+            autorange=True # Kaydırdıkça fiyatın otomatik ölçeklenmesini sağlar
         )
     )
     
-    # GÜNCELLEME: X Eksenlerini update_layout içinde değil, update_xaxes ile güncelledik.
-    # Böylece alt grafiğin X ekseni ezilmiyor ve tarihler görünüyor.
-    fig.update_xaxes(
-        range=[view_start, view_end], 
-        rangeslider_visible=False, 
-        fixedrange=False, 
-        autorange=False,
-        matches='x'
-    )
+    # Alt grafiğin ve üst grafiğin X eksenini birbirine bağla (senkronize kaydırma)
+    fig.update_xaxes(matches='x')
 
     return fig
 
@@ -404,9 +416,13 @@ Baslangic = col1.date_input("Başlangıç", value=datetime.now() - timedelta(day
 Bitis = col2.date_input("Bitiş", value=datetime.now())
 Secilen_Periyot = st.sidebar.selectbox("Periyot", ["15m", "30m", "1h", "2h", "4h", "8h", "1d", "1wk"], index=4)
 
+# GÜNCELLEME 3: Grafik tipi seçimi buraya eklendi
 st.sidebar.markdown("---")
 GRAFIK_TIPI = st.sidebar.radio("Grafik Görünümü", ["Mum (Candlestick)", "Çizgi (Line)"], horizontal=True)
 
+# ============================================================
+# 📊 Gösterge Açma/Kapama
+# ============================================================
 st.sidebar.markdown("---")
 st.sidebar.subheader("📊 Göstergeler")
 
@@ -419,6 +435,9 @@ show_sma = st.sidebar.checkbox("SMA", value=False)
 show_bb = st.sidebar.checkbox("Bollinger Bands", value=False)
 show_ichimoku = st.sidebar.checkbox("Ichimoku Cloud", value=False)
 
+# ============================================================
+# 🎯 Hassasiyet Ayarları
+# ============================================================
 st.sidebar.markdown("---")
 st.sidebar.subheader("🎯 Hassasiyet Ayarları")
 
@@ -433,6 +452,9 @@ SMA_2_LEN = st.sidebar.slider("SMA 2 Periyodu", 5, 200, 50) if show_sma else 50
 BB_LEN = st.sidebar.slider("BB Periyodu", 5, 50, 20) if show_bb else 20
 BB_STD = st.sidebar.slider("BB Standart Sapma", 1.0, 4.0, 2.0, 0.5) if show_bb else 2.0
 
+# ============================================================
+# 🚀 Analizi Başlat
+# ============================================================
 if st.sidebar.button("Analizi Başlat"):
     with st.spinner('Veriler hesaplanıyor...'):
         fig = create_complete_trading_chart(
@@ -440,9 +462,10 @@ if st.sidebar.button("Analizi Başlat"):
             KAMA_HIZI, TREND_CARPAN, OSILATOR_PER, HACIM_DETAY, FIB_BAKIS,
             show_kama, show_supertrend, show_stochrsi, show_fib, show_vrvp,
             show_sma, SMA_1_LEN, SMA_2_LEN, show_bb, BB_LEN, BB_STD,
-            show_ichimoku, GRAFIK_TIPI 
+            show_ichimoku, GRAFIK_TIPI # GÜNCELLEME 4: Parametre buraya eklendi
         )
         if fig:
+            # SADECE BURASI GÜNCELLENDİ: Plotly grafiğine scrollZoom yeteneği eklendi
             config = {'scrollZoom': True, 'displayModeBar': True}
             st.plotly_chart(fig, use_container_width=True, config=config)
 else:
