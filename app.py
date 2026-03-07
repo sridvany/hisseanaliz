@@ -12,7 +12,7 @@ st.set_page_config(layout="wide", page_title="AI Teknik Analiz Terminali")
 
 def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_len, v_bins, f_look,
                                    show_kama, show_supertrend, show_stochrsi, show_fib, show_vrvp,
-                                   show_sma, sma_len, show_bb, bb_len, bb_std,
+                                   show_sma, sma1_len, sma2_len, show_bb, bb_len, bb_std,
                                    show_ichimoku):
     # 1. Veri Çekme (resampling gereken periyotlar için 1h çekip dönüştürme)
     resample_map = {"2h": "2h", "4h": "4h", "8h": "8h"}
@@ -104,13 +104,18 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
             st.warning(f"Divergence osilatörü hatası: {e}")
             show_stochrsi = False
 
-    # SMA
+    # SMA 1 ve SMA 2
     if show_sma:
         try:
-            sma_result = ta.sma(df['Close'], length=sma_len)
-            if sma_result is not None:
-                df['SMA'] = sma_result
-            else:
+            sma1_result = ta.sma(df['Close'], length=sma1_len)
+            sma2_result = ta.sma(df['Close'], length=sma2_len)
+            
+            if sma1_result is not None:
+                df['SMA_1'] = sma1_result
+            if sma2_result is not None:
+                df['SMA_2'] = sma2_result
+                
+            if sma1_result is None and sma2_result is None:
                 show_sma = False
         except Exception as e:
             st.warning(f"SMA hatası: {e}")
@@ -172,16 +177,12 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
             st.warning(f"Ichimoku hesaplama hatası: {e}")
             show_ichimoku = False
 
-    # Fibonacci
-    # Fibonacci
+    # Fibonacci (61.8% ve 78.6% eklendi)
     fib = {}
     if show_fib:
         f_df = df if f_look is None else df.tail(f_look)
         hi, lo = f_df['High'].max(), f_df['Low'].min()
-        
-        # Farkı (range) bir değişkene atamak kodu daha okunaklı yapar
         diff = hi - lo
-        
         fib = {
             '23.6%': hi - 0.236 * diff, 
             '38.2%': hi - 0.382 * diff, 
@@ -238,10 +239,14 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                                       marker=dict(symbol='triangle-down', size=12, color='#ff1744'),
                                       name='Düşüş Uyumsuzluğu'), row=1, col=1)
 
-    # SMA
+    # SMA 1 ve SMA 2 Çizimi
     if show_sma:
-        fig.add_trace(go.Scatter(x=df.index, y=df['SMA'],
-                                  line=dict(color='#ff9800', width=2), name=f'SMA({sma_len})'), row=1, col=1)
+        if 'SMA_1' in df.columns:
+            fig.add_trace(go.Scatter(x=df.index, y=df['SMA_1'],
+                                      line=dict(color='#ff9800', width=2), name=f'SMA 1 ({sma1_len})'), row=1, col=1)
+        if 'SMA_2' in df.columns:
+            fig.add_trace(go.Scatter(x=df.index, y=df['SMA_2'],
+                                      line=dict(color='#2196f3', width=2), name=f'SMA 2 ({sma2_len})'), row=1, col=1)
 
     # Bollinger Bands
     if show_bb:
@@ -334,7 +339,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                                       mode='markers', marker=dict(symbol='triangle-down', size=10, color='#ff1744'),
                                       name='Bear Div', showlegend=False), row=2, col=1)
 
-    # GÜNCELLENEN KISIM: Legend notu daha büyük, kalın ve kırmızı renkte.
+    # Legend notu daha büyük, kalın ve kırmızı renkte.
     if not df.empty:
         fig.add_trace(go.Scatter(
             x=[df.index[0]], y=[df['Close'].iloc[0]], 
@@ -404,7 +409,8 @@ OSILATOR_PER = st.sidebar.slider("Divergence RSI Periyodu", 7, 30, 14) if show_s
 HACIM_DETAY = st.sidebar.slider("Hacim Detayı", 20, 100, 40) if show_vrvp else 40
 FIB_BAKIS = st.sidebar.number_input("Fib Geriye Bakış (Mum)", value=100) if show_fib else 100
 
-SMA_LEN = st.sidebar.slider("SMA Periyodu", 5, 200, 20) if show_sma else 20
+SMA_1_LEN = st.sidebar.slider("SMA 1 Periyodu", 5, 200, 20) if show_sma else 20
+SMA_2_LEN = st.sidebar.slider("SMA 2 Periyodu", 5, 200, 50) if show_sma else 50
 BB_LEN = st.sidebar.slider("BB Periyodu", 5, 50, 20) if show_bb else 20
 BB_STD = st.sidebar.slider("BB Standart Sapma", 1.0, 4.0, 2.0, 0.5) if show_bb else 2.0
 
@@ -417,7 +423,7 @@ if st.sidebar.button("Analizi Başlat"):
             Hisse, Baslangic, Bitis, Secilen_Periyot,
             KAMA_HIZI, TREND_CARPAN, OSILATOR_PER, HACIM_DETAY, FIB_BAKIS,
             show_kama, show_supertrend, show_stochrsi, show_fib, show_vrvp,
-            show_sma, SMA_LEN, show_bb, BB_LEN, BB_STD,
+            show_sma, SMA_1_LEN, SMA_2_LEN, show_bb, BB_LEN, BB_STD,
             show_ichimoku
         )
         if fig:
@@ -438,7 +444,7 @@ else:
     * **KAMA Hızı:** Değerini düşürürseniz fiyatı daha yakından izler, artırırsanız ana trendi gösterir.
     * **Trend Çarpanı:** Değerini 1.5 gibi seviyelere düşürürseniz 'AL/SAT' sinyalleri çok daha erken gelir.
     * **Osilatör Periyodu:** Divergence hesaplamasının RSI periyodunu belirler. Düşük değer daha hassas, yüksek değer daha az gürültülüdür.
-    * **SMA:** Basit hareketli ortalama. Kısa periyot (10-20) hızlı sinyal, uzun periyot (50-200) ana trend.
+    * **SMA:** Basit hareketli ortalama. İki farklı SMA seçerek kısa (örn: 20) ve uzun (örn: 50) dönem trendlerini karşılaştırabilirsiniz. Kısa SMA, uzun SMA'yı yukarı kestiğinde alım gücü artıyor demektir.
     * **Bollinger Bands:** Fiyatın volatilite bandını gösterir. Bantlar daralırsa büyük hareket beklenir. 
        BB Periyodu hareketli ortalamanın kaç periyot üzerinden hesaplanacağını belirler. Artarsa uzun vadeli trend görülür ama erken sinyal kaçabilir. Azalırsa yanlış sinyal artar.
        BB Standart Sapma bantların ortalamanın ne kadar uzağına çizileceğini belirler. Artarsa Sinyaller azalır ama gelen sinyaller daha güçlü olur. Azalırsa yanlış sinyal artar.
@@ -452,12 +458,12 @@ else:
     * **Yeşil Yatay Çizgiler (-20/-30 — Aşırı Satım):** Momentum bu bölgeye düştüğünde fiyat aşırı satım bölgesindedir. Yeşil çizgi bu bölgede kırmızıyı yukarı keserse güçlü alım sinyalidir.
     * **Uyumsuzluk (Divergence) — Yalan Dedektörü:** Bu gösterge fiyatın söylediği ile gerçekte olan arasındaki çelişkiyi yakalar. Fiyat yeni tepe yapıyorsa ama momentum yapmıyorsa (▼D), "Bu yükseliş yalan, güç tükeniyor" der. Fiyat yeni dip yapıyorsa ama momentum yapmıyorsa (▲D), "Bu düşüş yalan, satıcılar zayıflıyor" der. Aşırı bölgelerde (+30 üstü veya -30 altı) oluşan uyumsuzluklar en güvenilir yalan tespitleridir.
     * **VRVP (Hacim Profili):** Sağdaki barlar paranın en çok hangi fiyat seviyesinde maliyetlendiğini gösterir.
-    * **Fibonacci Seviyeleri:** Fiyatın matematiksel olarak destek bulabileceği %23.6, %38.2 ve %50 bölgelerini gösterir.
+    * **Fibonacci Seviyeleri:** Fiyatın matematiksel olarak destek/direnç bulabileceği önemli oranları (%23.6, %38.2, %50, %61.8, %78.6) gösterir.
 
     #### 📐 SMA (Basit Hareketli Ortalama)
     * **Trend Yönü:** Fiyat SMA'nın üzerindeyse yükseliş trendi, altındaysa düşüş trendi hakimdir.
     * **Kesişme Sinyalleri:** Fiyat SMA'yı alttan yukarı keserse alım, üstten aşağı keserse satım sinyalidir.
-    * **Golden Cross / Death Cross:** SMA 50, SMA 200'ü yukarı keserse "Golden Cross" (güçlü alım), aşağı keserse "Death Cross" (güçlü satım) oluşur.
+    * **Golden Cross / Death Cross:** Kısa SMA (örn: 50), uzun SMA'yı (örn: 200) yukarı keserse "Golden Cross" (güçlü alım), aşağı keserse "Death Cross" (güçlü satım) oluşur.
     * **Periyot Seçimi:** Kısa periyot (10-20) kısa vadeli dalgalanmaları, uzun periyot (50-200) ana trendi gösterir.
 
     #### 🎸 Bollinger Bands (Volatilite Bantları)
@@ -492,5 +498,3 @@ else:
 
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
-
-
