@@ -418,7 +418,7 @@ Secilen_Periyot = st.sidebar.selectbox("Periyot", ["15m", "30m", "1h", "2h", "4h
 
 # GÜNCELLEME 3: Grafik tipi seçimi buraya eklendi
 st.sidebar.markdown("---")
-GRAFIK_TIPI = st.sidebar.radio("Grafik Görünümü", ["Mum (Candlestick)", "Çizgi (Line)"], horizontal=True)
+GRAFIK_TIPI = st.sidebar.radio("Grafik Görünümü", ["Çizgi (Line)", "Mum (Candlestick)"], horizontal=True)
 
 # ============================================================
 # 📊 Gösterge Açma/Kapama
@@ -538,6 +538,7 @@ else:
 
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
+
 
 
 
