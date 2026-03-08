@@ -447,7 +447,7 @@ OSILATOR_PER = st.sidebar.slider("Divergence RSI Periyodu", 7, 30, 14) if show_s
 HACIM_DETAY = st.sidebar.slider("Hacim Detayı", 20, 100, 40) if show_vrvp else 40
 FIB_BAKIS = st.sidebar.number_input("Fib Geriye Bakış (Mum)", value=100) if show_fib else 100
 
-SMA_1_LEN = st.sidebar.slider("SMA 1 Periyodu", 5, 200, 20) if show_sma else 50
+SMA_1_LEN = st.sidebar.slider("SMA 1 Periyodu", 5, 20, 50, 200) if show_sma else 50
 SMA_2_LEN = st.sidebar.slider("SMA 2 Periyodu", 5, 200, 50) if show_sma else 200
 BB_LEN = st.sidebar.slider("BB Periyodu", 5, 50, 20) if show_bb else 20
 BB_STD = st.sidebar.slider("BB Standart Sapma", 1.0, 4.0, 2.0, 0.5) if show_bb else 2.0
@@ -538,4 +538,5 @@ else:
 
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
+
 
