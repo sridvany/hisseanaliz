@@ -10,9 +10,9 @@ from datetime import datetime, timedelta
 # Sayfa Genişliği Ayarı
 st.set_page_config(layout="wide", page_title="AI Teknik Analiz Terminali")
 
-# GÜNCELLEME 1: Fonksiyona 'chart_type' parametresi eklendi
+# GÜNCELLEME 1: Fonksiyona 'chart_type' ve 'div_lookback' parametreleri eklendi
 def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_len, v_bins, f_look,
-                                   show_kama, show_supertrend, show_stochrsi, show_fib, show_vrvp,
+                                   show_kama, show_supertrend, show_stochrsi, div_lookback, show_fib, show_vrvp,
                                    show_sma, sma1_len, sma2_len, show_bb, bb_len, bb_std,
                                    show_ichimoku, chart_type):
     # 1. Veri Çekme (resampling gereken periyotlar için 1h çekip dönüştürme)
@@ -74,7 +74,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                 df['Mom_Hist'] = df['Mom'] - df['Mom_Signal']  # Histogram
 
                 # Swing noktaları ile uyumsuzluk tespiti
-                lookback = 5
+                lookback = div_lookback # GÜNCELLEME: Sabit 5 değeri yerine slider verisi atandı
                 df['Swing_Low'] = df['Close'][(df['Close'].shift(lookback) > df['Close']) & (df['Close'].shift(-lookback) > df['Close'])]
                 df['Swing_High'] = df['Close'][(df['Close'].shift(lookback) < df['Close']) & (df['Close'].shift(-lookback) < df['Close'])]
                 df['Mom_Swing_Low'] = df['Mom'][(df['Mom'].shift(lookback) > df['Mom']) & (df['Mom'].shift(-lookback) > df['Mom'])]
@@ -277,15 +277,22 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
         fig.add_trace(go.Scatter(x=df.index, y=df['Chikou'],
                                   line=dict(color='#9c27b0', width=1, dash='dot'), name='Chikou'), row=1, col=1)
 
-    # Fibonacci (Sağda, Turuncu Kutu, Siyah Yazı)
-    if show_fib:
+    # Fibonacci (Gösterge anahtarından aç/kapa yapılabilmesi için Scatter grafiğine dönüştürüldü)
+    if show_fib and not df.empty:
+        x_start = df.index[0]
+        x_end = df.index[-1]
         for l, p in fib.items():
-            fig.add_hline(y=p, line_dash="dash", line_color="rgba(128,128,128,0.5)",
-                          annotation_text=f"{l} ({p:.2f})", 
-                          annotation_position="right",
-                          annotation_bgcolor="orange", 
-                          annotation_font_color="black", 
-                          row=1, col=1)
+            fig.add_trace(go.Scatter(
+                x=[x_start, x_end], 
+                y=[p, p],
+                mode='lines+text',
+                line=dict(color='orange', width=1, dash='dash'),
+                text=["", f" {l} ({p:.2f})"], 
+                textposition="middle right",
+                textfont=dict(color="orange", size=11),
+                name=f"Fib {l}",
+                showlegend=True
+            ), row=1, col=1)
 
     # Son Fiyat Gösterimi (Sağda, Yön Rengine Göre Kutu, Siyah Yazı)
     if not df.empty:
@@ -444,6 +451,7 @@ st.sidebar.subheader("🎯 Hassasiyet Ayarları")
 KAMA_HIZI = st.sidebar.slider("KAMA Hızı", 5, 50, 10) if show_kama else 10
 TREND_CARPAN = st.sidebar.slider("Trend Çarpanı", 1.0, 5.0, 2.0, 0.5) if show_supertrend else 2.0
 OSILATOR_PER = st.sidebar.slider("Divergence RSI Periyodu", 7, 30, 14) if show_stochrsi else 14
+DIV_LOOKBACK = st.sidebar.slider("Divergence Lookback", 2, 20, 5) if show_stochrsi else 5 # GÜNCELLEME: Slider eklendi
 HACIM_DETAY = st.sidebar.slider("Hacim Detayı", 20, 100, 40) if show_vrvp else 40
 FIB_BAKIS = st.sidebar.number_input("Fib Geriye Bakış (Mum)", value=100) if show_fib else 100
 
@@ -460,9 +468,9 @@ if st.sidebar.button("Analizi Başlat"):
         fig = create_complete_trading_chart(
             Hisse, Baslangic, Bitis, Secilen_Periyot,
             KAMA_HIZI, TREND_CARPAN, OSILATOR_PER, HACIM_DETAY, FIB_BAKIS,
-            show_kama, show_supertrend, show_stochrsi, show_fib, show_vrvp,
+            show_kama, show_supertrend, show_stochrsi, DIV_LOOKBACK, show_fib, show_vrvp, # GÜNCELLEME: DIV_LOOKBACK eklendi
             show_sma, SMA_1_LEN, SMA_2_LEN, show_bb, BB_LEN, BB_STD,
-            show_ichimoku, GRAFIK_TIPI # GÜNCELLEME 4: Parametre buraya eklendi
+            show_ichimoku, GRAFIK_TIPI 
         )
         if fig:
             # SADECE BURASI GÜNCELLENDİ: Plotly grafiğine scrollZoom yeteneği eklendi
@@ -538,8 +546,3 @@ else:
 
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
-
-
-
-
-
