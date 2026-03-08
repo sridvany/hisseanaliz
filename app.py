@@ -358,10 +358,10 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
             x=[df.index[0]], y=[df['Close'].iloc[0]], 
             mode='lines',
             line=dict(color='rgba(0,0,0,0)', width=0), # Çizgi tamamen görünmez
-            name='<span style="font-size:12px; color:red; font-weight:bold;">* Üstüne tıklayarak<br>indikatörü açabilirsiniz</span>',
+            name='<span style="font-size:12px; color:red; font-weight:bold;">Üstüne tıklayarak<br>indikatörü açabilirsiniz</span>',
             showlegend=True,
             hoverinfo='skip' # Mouse üzerine gelince etkileşim olmasın
-        ), row=1, col=1)
+        ), row=1, col=1
 
     # ============================================================
     # TRADINGVIEW BENZERİ PAN/SCROLL İÇİN GÜNCELLENEN LAYOUT
@@ -546,4 +546,5 @@ else:
 
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
+
 
