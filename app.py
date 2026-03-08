@@ -203,6 +203,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                         vertical_spacing=0.05, horizontal_spacing=0.01)
 
     # GÜNCELLEME 2: Mum veya Çizgi Grafiği Mantığı
+    # AÇIK KALSIN
     if chart_type == "Mum (Candlestick)":
         fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'],
                                       low=df['Low'], close=df['Close'], name='Fiyat'), row=1, col=1)
@@ -211,11 +212,13 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                                   line=dict(color='#ff1744', width=2), name='Fiyat (Kapanış)'), row=1, col=1)
 
     # KAMA
+    # AÇIK KALSIN
     if show_kama:
         fig.add_trace(go.Scatter(x=df.index, y=df['KAMA'],
                                   line=dict(color='#2962ff', width=2), name='KAMA'), row=1, col=1)
 
     # SuperTrend + AL/SAT Sinyalleri
+    # AÇIK KALSIN
     if show_supertrend:
         fig.add_trace(go.Scatter(x=df.index, y=df['ST_Line'],
                                   line=dict(color='rgba(80,80,80,0.7)', width=2.5),
@@ -228,6 +231,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                                   marker=dict(symbol='triangle-down', size=15, color='red'), name='SAT'), row=1, col=1)
 
     # Divergence Okları (Ana grafik üzerinde)
+    # KAPALI BAŞLASIN (visible='legendonly')
     if show_stochrsi:
         bull_div = df[df['Bull_Div'] == True]
         bear_div = df[df['Bear_Div'] == True]
@@ -236,46 +240,49 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                                       mode='markers+text', text="▲D",
                                       textposition='bottom center', textfont=dict(size=9, color='#00e676'),
                                       marker=dict(symbol='triangle-up', size=12, color='#00e676'),
-                                      name='Yükseliş Uyumsuzluğu'), row=1, col=1)
+                                      name='Yükseliş Uyumsuzluğu', visible='legendonly'), row=1, col=1)
         if len(bear_div) > 0:
             fig.add_trace(go.Scatter(x=bear_div.index, y=bear_div['High'] * 1.01,
                                       mode='markers+text', text="▼D",
                                       textposition='top center', textfont=dict(size=9, color='#ff1744'),
                                       marker=dict(symbol='triangle-down', size=12, color='#ff1744'),
-                                      name='Düşüş Uyumsuzluğu'), row=1, col=1)
+                                      name='Düşüş Uyumsuzluğu', visible='legendonly'), row=1, col=1)
 
     # SMA 1 ve SMA 2 Çizimi
+    # KAPALI BAŞLASIN (visible='legendonly')
     if show_sma:
         if 'SMA_1' in df.columns:
             fig.add_trace(go.Scatter(x=df.index, y=df['SMA_1'],
-                                      line=dict(color='#ff9800', width=2), name=f'SMA 1 ({sma1_len})'), row=1, col=1)
+                                      line=dict(color='#ff9800', width=2), name=f'SMA 1 ({sma1_len})', visible='legendonly'), row=1, col=1)
         if 'SMA_2' in df.columns:
             fig.add_trace(go.Scatter(x=df.index, y=df['SMA_2'],
-                                      line=dict(color='#2196f3', width=2), name=f'SMA 2 ({sma2_len})'), row=1, col=1)
+                                      line=dict(color='#2196f3', width=2), name=f'SMA 2 ({sma2_len})', visible='legendonly'), row=1, col=1)
 
     # Bollinger Bands
+    # KAPALI BAŞLASIN (visible='legendonly')
     if show_bb:
         fig.add_trace(go.Scatter(x=df.index, y=df['BB_Upper'],
-                                  line=dict(color='rgba(174,134,255,0.6)', width=1), name='BB Üst'), row=1, col=1)
+                                  line=dict(color='rgba(174,134,255,0.6)', width=1), name='BB Üst', visible='legendonly'), row=1, col=1)
         fig.add_trace(go.Scatter(x=df.index, y=df['BB_Mid'],
-                                  line=dict(color='rgba(174,134,255,0.9)', width=1, dash='dot'), name='BB Orta'), row=1, col=1)
+                                  line=dict(color='rgba(174,134,255,0.9)', width=1, dash='dot'), name='BB Orta', visible='legendonly'), row=1, col=1)
         fig.add_trace(go.Scatter(x=df.index, y=df['BB_Lower'],
                                   line=dict(color='rgba(174,134,255,0.6)', width=1),
-                                  fill='tonexty', fillcolor='rgba(174,134,255,0.07)', name='BB Alt'), row=1, col=1)
+                                  fill='tonexty', fillcolor='rgba(174,134,255,0.07)', name='BB Alt', visible='legendonly'), row=1, col=1)
 
     # Ichimoku
+    # KAPALI BAŞLASIN (visible='legendonly')
     if show_ichimoku:
         fig.add_trace(go.Scatter(x=df.index, y=df['Tenkan'],
-                                  line=dict(color='#0496ff', width=1), name='Tenkan-sen'), row=1, col=1)
+                                  line=dict(color='#0496ff', width=1), name='Tenkan-sen', visible='legendonly'), row=1, col=1)
         fig.add_trace(go.Scatter(x=df.index, y=df['Kijun'],
-                                  line=dict(color='#991515', width=1), name='Kijun-sen'), row=1, col=1)
+                                  line=dict(color='#991515', width=1), name='Kijun-sen', visible='legendonly'), row=1, col=1)
         fig.add_trace(go.Scatter(x=df.index, y=df['Senkou_A'],
-                                  line=dict(color='rgba(67,160,71,0.5)', width=1), name='Senkou A'), row=1, col=1)
+                                  line=dict(color='rgba(67,160,71,0.5)', width=1), name='Senkou A', visible='legendonly'), row=1, col=1)
         fig.add_trace(go.Scatter(x=df.index, y=df['Senkou_B'],
                                   line=dict(color='rgba(244,67,54,0.5)', width=1),
-                                  fill='tonexty', fillcolor='rgba(67,160,71,0.06)', name='Senkou B'), row=1, col=1)
+                                  fill='tonexty', fillcolor='rgba(67,160,71,0.06)', name='Senkou B', visible='legendonly'), row=1, col=1)
         fig.add_trace(go.Scatter(x=df.index, y=df['Chikou'],
-                                  line=dict(color='#9c27b0', width=1, dash='dot'), name='Chikou'), row=1, col=1)
+                                  line=dict(color='#9c27b0', width=1, dash='dot'), name='Chikou', visible='legendonly'), row=1, col=1)
 
     # Fibonacci (Sağda, Turuncu Kutu, Siyah Yazı - Orijinal haline geri getirildi)
     if show_fib:
@@ -316,12 +323,13 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                                   marker_color='rgba(38,166,154,0.4)', showlegend=False), row=1, col=2)
 
     # Osilatör Paneli (Divergence Momentum)
+    # KAPALI BAŞLASIN (visible='legendonly')
     if show_stochrsi:
         # Histogram barları
         fig.add_trace(go.Scatter(x=df.index, y=df['Mom'],
-                                  line=dict(color='#00c853', width=1.5), name='Momentum'), row=2, col=1)
+                                  line=dict(color='#00c853', width=1.5), name='Momentum', visible='legendonly'), row=2, col=1)
         fig.add_trace(go.Scatter(x=df.index, y=df['Mom_Signal'],
-                                  line=dict(color='#ff1744', width=1.5), name='Sinyal'), row=2, col=1)
+                                  line=dict(color='#ff1744', width=1.5), name='Sinyal', visible='legendonly'), row=2, col=1)
         fig.add_hline(y=0, line_dash="solid", line_color="rgba(128,128,128,0.5)", row=2, col=1)
         # Üst sınırlar (kırmızı - aşırı alım bölgesi)
         fig.add_hline(y=30, line_dash="dash", line_color="rgba(255,23,68,0.5)",
@@ -332,7 +340,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                       annotation_text="-30", row=2, col=1)
         fig.add_hline(y=-20, line_dash="dot", line_color="rgba(0,200,83,0.3)", row=2, col=1)
 
-        # Divergence işaretleri osilatör üzerinde
+        # Divergence işaretleri osilatör üzerinde (Ana grafikte kapalı olduğu gibi burada da gizli başlatılabilir, ama showlegend=False zaten)
         bull_div = df[df['Bull_Div'] == True]
         bear_div = df[df['Bear_Div'] == True]
         if len(bull_div) > 0:
@@ -429,7 +437,7 @@ st.sidebar.subheader("📊 Göstergeler")
 show_kama = st.sidebar.checkbox("KAMA", value=True)
 show_supertrend = st.sidebar.checkbox("SuperTrend (AL/SAT)", value=True)
 show_stochrsi = st.sidebar.checkbox("Divergence Osilatörü", value=True)
-show_fib = st.sidebar.checkbox("Fibonacci Seviyeleri", value=False)
+show_fib = st.sidebar.checkbox("Fibonacci Seviyeleri", value=True)
 show_vrvp = st.sidebar.checkbox("VRVP (Hacim Profili)", value=True)
 show_sma = st.sidebar.checkbox("SMA", value=True)
 show_bb = st.sidebar.checkbox("Bollinger Bands", value=True)
@@ -538,4 +546,3 @@ else:
 
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
-
