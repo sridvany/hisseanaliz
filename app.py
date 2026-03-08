@@ -337,23 +337,20 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
     # SINYAL SKORLARI — İLK EKLENEN = LEGEND'DA EN ALTTA
     # ============================================================
     if not df.empty:
-        fig.add_trace(go.Scatter(
-            x=[df.index[0]], y=[df['Close'].iloc[0]],
-            mode='lines', line=dict(color='rgba(0,0,0,0)', width=0),
-            name='<span style="font-size:13px; color:#333; font-weight:bold;">── Çoklu Sinyal Skorları ──</span>',
-            showlegend=True, hoverinfo='skip'
-        ), row=1, col=1)
-        for baslik, veri in skorlar.items():
+        # Plotly legend TERS sırada gösterir.
+        # İstenen legend sırası (yukarıdan aşağı):
+        #   Üstüne Tıklayarak...   ← indikatörlerin hemen altında
+        #   ── Çoklu Sinyal Skorları ──
+        #   skorlar + detaylar
+        # Bu yüzden ekleme sırası tam tersi olmalı: önce skorlar, sonra başlık, en son Tıklayarak.
+
+        # 1) Skor detaylarını ters sırada ekle (en alttaki skor önce)
+        for baslik, veri in list(skorlar.items()):
             p, m = veri['puan'], veri['max']
             yuzde = int(p / m * 100) if m > 0 else 0
             renk = "#00c853" if "AL" in baslik else "#ff1744"
-            skor_label = f'<span style="color:{renk}; font-size:11px;"><b>{baslik}</b>  {p}/{m} [{"█"*p}{"░"*(m-p)}] %{yuzde}</span>'
-            fig.add_trace(go.Scatter(
-                x=[df.index[0]], y=[df['Close'].iloc[0]],
-                mode='lines', line=dict(color='rgba(0,0,0,0)', width=0),
-                name=skor_label, showlegend=True, hoverinfo='skip'
-            ), row=1, col=1)
-            for aciklama, durum in veri['detay']:
+            # Önce detayları ters sırada ekle
+            for aciklama, durum in reversed(veri['detay']):
                 isaret = "✔" if durum else "✘"
                 renk2 = "#00c853" if durum else "#aaaaaa"
                 fig.add_trace(go.Scatter(
@@ -362,6 +359,23 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                     name=f'<span style="color:{renk2}; font-size:10px;">  {isaret} {aciklama}</span>',
                     showlegend=True, hoverinfo='skip'
                 ), row=1, col=1)
+            # Sonra skor başlığı
+            skor_label = f'<span style="color:{renk}; font-size:11px;"><b>{baslik}</b>  {p}/{m} [{"█"*p}{"░"*(m-p)}] %{yuzde}</span>'
+            fig.add_trace(go.Scatter(
+                x=[df.index[0]], y=[df['Close'].iloc[0]],
+                mode='lines', line=dict(color='rgba(0,0,0,0)', width=0),
+                name=skor_label, showlegend=True, hoverinfo='skip'
+            ), row=1, col=1)
+
+        # 2) "── Çoklu Sinyal Skorları ──" başlığı
+        fig.add_trace(go.Scatter(
+            x=[df.index[0]], y=[df['Close'].iloc[0]],
+            mode='lines', line=dict(color='rgba(0,0,0,0)', width=0),
+            name='<span style="font-size:13px; color:#333; font-weight:bold;">── Çoklu Sinyal Skorları ──</span>',
+            showlegend=True, hoverinfo='skip'
+        ), row=1, col=1)
+
+        # 3) En son eklenen → legend'da en üstte → indikatörlerin hemen altında
         fig.add_trace(go.Scatter(
             x=[df.index[0]], y=[df['Close'].iloc[0]],
             mode='lines', line=dict(color='rgba(0,0,0,0)', width=0),
