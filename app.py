@@ -477,10 +477,10 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
 
     # ============================================================
     # LEGEND'A SINYAL SKORLARI EKLENİYOR
+    # (Tüm görsel trace'lerden SONRA eklenir → legend'da en altta görünür)
     # ============================================================
-
-    # Ayırıcı satır
     if not df.empty:
+        # Önce "Tıklayarak Aç" notu
         fig.add_trace(go.Scatter(
             x=[df.index[0]], y=[df['Close'].iloc[0]],
             mode='lines',
@@ -490,7 +490,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
             hoverinfo='skip'
         ), row=1, col=1)
 
-        # Skor başlığı
+        # Sonra skor başlığı
         fig.add_trace(go.Scatter(
             x=[df.index[0]], y=[df['Close'].iloc[0]],
             mode='lines',
@@ -504,8 +504,8 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
         for baslik, veri in skorlar.items():
             p, m = veri['puan'], veri['max']
             yuzde = int(p / m * 100) if m > 0 else 0
-            bar_dolu  = "█" * p
-            bar_bos   = "░" * (m - p)
+            bar_dolu = "█" * p
+            bar_bos  = "░" * (m - p)
             renk = "#00c853" if "AL" in baslik else "#ff1744"
 
             skor_label = (
@@ -522,7 +522,6 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                 hoverinfo='skip'
             ), row=1, col=1)
 
-            # Alt detaylar
             for aciklama, durum in veri['detay']:
                 isaret = "✔" if durum else "✘"
                 renk2  = "#00c853" if durum else "#aaaaaa"
