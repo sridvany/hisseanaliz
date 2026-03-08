@@ -431,9 +431,9 @@ show_supertrend = st.sidebar.checkbox("SuperTrend (AL/SAT)", value=True)
 show_stochrsi = st.sidebar.checkbox("Divergence Osilatörü", value=True)
 show_fib = st.sidebar.checkbox("Fibonacci Seviyeleri", value=True)
 show_vrvp = st.sidebar.checkbox("VRVP (Hacim Profili)", value=True)
-show_sma = st.sidebar.checkbox("SMA", value=False)
-show_bb = st.sidebar.checkbox("Bollinger Bands", value=False)
-show_ichimoku = st.sidebar.checkbox("Ichimoku Cloud", value=False)
+show_sma = st.sidebar.checkbox("SMA", value=True)
+show_bb = st.sidebar.checkbox("Bollinger Bands", value=True)
+show_ichimoku = st.sidebar.checkbox("Ichimoku Cloud", value=True)
 
 # ============================================================
 # 🎯 Hassasiyet Ayarları
@@ -538,6 +538,7 @@ else:
 
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
+
 
 
 
