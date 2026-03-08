@@ -635,7 +635,7 @@ else:
 
     st.markdown("""
     ---
-        ### 📖 Teknik Analiz Klavuzu
+    ### 📖 Teknik Analiz Klavuzu
 
     #### 🚀 Sinyaller ve Oklar
     * **Büyük Üçgenler (AL/SAT):** SuperTrend indikatörünün ana trend onay sinyalleridir.
@@ -704,5 +704,6 @@ else:
     ---
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
+
 
 
