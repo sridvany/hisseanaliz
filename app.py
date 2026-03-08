@@ -10,11 +10,11 @@ from datetime import datetime, timedelta
 # Sayfa Genişliği Ayarı
 st.set_page_config(layout="wide", page_title="AI Teknik Analiz Terminali")
 
-# GÜNCELLEME 1: Fonksiyona 'chart_type' ve 'div_lookback' parametreleri eklendi
+# GÜNCELLEME: Fonksiyona 'show_pivot' parametresi eklendi
 def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_len, v_bins, f_look,
                                    show_kama, show_supertrend, show_stochrsi, div_lookback, show_fib, show_vrvp,
                                    show_sma, sma1_len, sma2_len, show_bb, bb_len, bb_std,
-                                   show_ichimoku, chart_type):
+                                   show_ichimoku, show_pivot, chart_type):
     # 1. Veri Çekme (resampling gereken periyotlar için 1h çekip dönüştürme)
     resample_map = {"2h": "2h", "4h": "4h", "8h": "8h"}
     raw_p = "1h" if per in resample_map else per
@@ -74,7 +74,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                 df['Mom_Hist'] = df['Mom'] - df['Mom_Signal']  # Histogram
 
                 # Swing noktaları ile uyumsuzluk tespiti
-                lookback = div_lookback # GÜNCELLEME: Sabit 5 değeri yerine slider verisi atandı
+                lookback = div_lookback 
                 df['Swing_Low'] = df['Close'][(df['Close'].shift(lookback) > df['Close']) & (df['Close'].shift(-lookback) > df['Close'])]
                 df['Swing_High'] = df['Close'][(df['Close'].shift(lookback) < df['Close']) & (df['Close'].shift(-lookback) < df['Close'])]
                 df['Mom_Swing_Low'] = df['Mom'][(df['Mom'].shift(lookback) > df['Mom']) & (df['Mom'].shift(-lookback) > df['Mom'])]
@@ -145,18 +145,15 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
     if show_ichimoku:
         try:
             ichi_result = ta.ichimoku(df['High'], df['Low'], df['Close'])
-            # tuple ise ilk elemanı al, değilse direkt kullan
             if isinstance(ichi_result, tuple):
                 ichi_df = ichi_result[0]
             else:
                 ichi_df = ichi_result
-            # None kontrolü
             if ichi_df is None or not hasattr(ichi_df, 'columns'):
                 st.warning("Ichimoku hesaplanamadı (veri yetersiz olabilir).")
                 show_ichimoku = False
             else:
                 cols = ichi_df.columns.tolist()
-                # Sadece isim bazlı erişim — iloc çakışmasını önler
                 for c in cols:
                     cl = c.upper()
                     if 'ITS' in cl:
@@ -169,7 +166,6 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                         df['Senkou_B'] = ichi_df[c]
                     elif 'ICS' in cl:
                         df['Chikou'] = ichi_df[c]
-                # Atama kontrolü
                 required = ['Tenkan', 'Kijun', 'Senkou_A', 'Senkou_B', 'Chikou']
                 if not all(c in df.columns for c in required):
                     st.warning(f"Ichimoku sütunları eşleşmedi: {cols}")
@@ -177,6 +173,24 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
         except Exception as e:
             st.warning(f"Ichimoku hesaplama hatası: {e}")
             show_ichimoku = False
+
+    # Standard Pivot Noktaları
+    if show_pivot:
+        try:
+            prev_h = df['High'].shift(1)
+            prev_l = df['Low'].shift(1)
+            prev_c = df['Close'].shift(1)
+            
+            df['Pivot'] = (prev_h + prev_l + prev_c) / 3
+            df['R1'] = (df['Pivot'] * 2) - prev_l
+            df['S1'] = (df['Pivot'] * 2) - prev_h
+            df['R2'] = df['Pivot'] + (prev_h - prev_l)
+            df['S2'] = df['Pivot'] - (prev_h - prev_l)
+            df['R3'] = df['R1'] + (prev_h - prev_l)
+            df['S3'] = df['S1'] - (prev_h - prev_l)
+        except Exception as e:
+            st.warning(f"Pivot hesaplama hatası: {e}")
+            show_pivot = False
 
     # Fibonacci (61.8% ve 78.6% eklendi)
     fib = {}
@@ -202,8 +216,6 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                         column_widths=[0.85, 0.15], row_heights=row_heights,
                         vertical_spacing=0.05, horizontal_spacing=0.01)
 
-    # GÜNCELLEME 2: Mum veya Çizgi Grafiği Mantığı
-    # AÇIK KALSIN
     if chart_type == "Mum (Candlestick)":
         fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'],
                                       low=df['Low'], close=df['Close'], name='Fiyat'), row=1, col=1)
@@ -211,14 +223,10 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
         fig.add_trace(go.Scatter(x=df.index, y=df['Close'], mode='lines',
                                   line=dict(color='#ff1744', width=2), name='Fiyat (Kapanış)'), row=1, col=1)
 
-    # KAMA
-    # AÇIK KALSIN
     if show_kama:
         fig.add_trace(go.Scatter(x=df.index, y=df['KAMA'],
                                   line=dict(color='#2962ff', width=2), name='KAMA'), row=1, col=1)
 
-    # SuperTrend + AL/SAT Sinyalleri
-    # AÇIK KALSIN
     if show_supertrend:
         fig.add_trace(go.Scatter(x=df.index, y=df['ST_Line'],
                                   line=dict(color='rgba(80,80,80,0.7)', width=2.5),
@@ -230,8 +238,6 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                                   mode='markers+text', text="SAT",
                                   marker=dict(symbol='triangle-down', size=15, color='red'), name='SAT'), row=1, col=1)
 
-    # Divergence Okları (Ana grafik üzerinde)
-    # KAPALI BAŞLASIN (visible='legendonly')
     if show_stochrsi:
         bull_div = df[df['Bull_Div'] == True]
         bear_div = df[df['Bear_Div'] == True]
@@ -248,8 +254,6 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                                       marker=dict(symbol='triangle-down', size=12, color='#ff1744'),
                                       name='Düşüş Uyumsuzluğu', visible='legendonly'), row=1, col=1)
 
-    # SMA 1 ve SMA 2 Çizimi
-    # KAPALI BAŞLASIN (visible='legendonly')
     if show_sma:
         if 'SMA_1' in df.columns:
             fig.add_trace(go.Scatter(x=df.index, y=df['SMA_1'],
@@ -258,8 +262,6 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
             fig.add_trace(go.Scatter(x=df.index, y=df['SMA_2'],
                                       line=dict(color='#2196f3', width=2), name=f'SMA 2 ({sma2_len})', visible='legendonly'), row=1, col=1)
 
-    # Bollinger Bands
-    # KAPALI BAŞLASIN (visible='legendonly')
     if show_bb:
         fig.add_trace(go.Scatter(x=df.index, y=df['BB_Upper'],
                                   line=dict(color='rgba(174,134,255,0.6)', width=1), name='BB Üst', visible='legendonly'), row=1, col=1)
@@ -269,8 +271,6 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                                   line=dict(color='rgba(174,134,255,0.6)', width=1),
                                   fill='tonexty', fillcolor='rgba(174,134,255,0.07)', name='BB Alt', visible='legendonly'), row=1, col=1)
 
-    # Ichimoku
-    # KAPALI BAŞLASIN (visible='legendonly')
     if show_ichimoku:
         fig.add_trace(go.Scatter(x=df.index, y=df['Tenkan'],
                                   line=dict(color='#0496ff', width=1), name='Tenkan-sen', visible='legendonly'), row=1, col=1)
@@ -284,7 +284,20 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
         fig.add_trace(go.Scatter(x=df.index, y=df['Chikou'],
                                   line=dict(color='#9c27b0', width=1, dash='dot'), name='Chikou', visible='legendonly'), row=1, col=1)
 
-    # Fibonacci (Sağda, Turuncu Kutu, Siyah Yazı - Orijinal haline geri getirildi)
+    # Standard Pivot Noktaları Çizimi
+    if show_pivot:
+        pivot_colors = {
+            'Pivot': '#FFD700', # Altın Sarısı
+            'R1': '#FF6347', 'R2': '#FF4500', 'R3': '#8B0000', # Kırmızı Tonları
+            'S1': '#32CD32', 'S2': '#228B22', 'S3': '#006400'  # Yeşil Tonları
+        }
+        for level, color in pivot_colors.items():
+            if level in df.columns:
+                fig.add_trace(go.Scatter(x=df.index, y=df[level],
+                                          line=dict(color=color, width=1.5, dash='dot'),
+                                          line_shape='hv', # Tradingview tarzı step-line (basamak) çizim
+                                          name=level, visible='legendonly'), row=1, col=1)
+
     if show_fib:
         for l, p in fib.items():
             fig.add_hline(y=p, line_dash="dash", line_color="rgba(128,128,128,0.5)",
@@ -294,12 +307,10 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                           annotation_font_color="black", 
                           row=1, col=1)
 
-    # Son Fiyat Gösterimi (Sağda, Yön Rengine Göre Kutu, Siyah Yazı)
     if not df.empty:
         last_close = df['Close'].iloc[-1]
         prev_close = df['Close'].iloc[-2] if len(df) > 1 else df['Open'].iloc[-1]
         
-        # Yükseliş varsa yeşil, düşüş varsa kırmızı arka plan
         price_color = "#00e676" if last_close >= prev_close else "#ff1744" 
         
         fig.add_hline(y=last_close, line_dash="dot", line_width=1, line_color=price_color,
@@ -309,7 +320,6 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                       annotation_font_color="black",
                       row=1, col=1)
 
-    # VRVP (Hacim Profili)
     if show_vrvp:
         bins = pd.cut(df['Close'], bins=v_bins, retbins=True)[1]
         df['V_T'] = df.apply(lambda r: 'B' if r['Close'] >= r['Open'] else 'S', axis=1)
@@ -322,25 +332,19 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
             fig.add_trace(go.Bar(x=[vb], y=[(bins[i] + bins[i + 1]) / 2], orientation='h',
                                   marker_color='rgba(38,166,154,0.4)', showlegend=False), row=1, col=2)
 
-    # Osilatör Paneli (Divergence Momentum)
-    # KAPALI BAŞLASIN (visible='legendonly')
     if show_stochrsi:
-        # Histogram barları
         fig.add_trace(go.Scatter(x=df.index, y=df['Mom'],
                                   line=dict(color='#00c853', width=1.5), name='Momentum', visible='legendonly'), row=2, col=1)
         fig.add_trace(go.Scatter(x=df.index, y=df['Mom_Signal'],
                                   line=dict(color='#ff1744', width=1.5), name='Sinyal', visible='legendonly'), row=2, col=1)
         fig.add_hline(y=0, line_dash="solid", line_color="rgba(128,128,128,0.5)", row=2, col=1)
-        # Üst sınırlar (kırmızı - aşırı alım bölgesi)
         fig.add_hline(y=30, line_dash="dash", line_color="rgba(255,23,68,0.5)",
                       annotation_text="30", row=2, col=1)
         fig.add_hline(y=20, line_dash="dot", line_color="rgba(255,23,68,0.3)", row=2, col=1)
-        # Alt sınırlar (yeşil - aşırı satım bölgesi)
         fig.add_hline(y=-30, line_dash="dash", line_color="rgba(0,200,83,0.5)",
                       annotation_text="-30", row=2, col=1)
         fig.add_hline(y=-20, line_dash="dot", line_color="rgba(0,200,83,0.3)", row=2, col=1)
 
-        # Divergence işaretleri osilatör üzerinde (Ana grafikte kapalı olduğu gibi burada da gizli başlatılabilir, ama showlegend=False zaten)
         bull_div = df[df['Bull_Div'] == True]
         bear_div = df[df['Bear_Div'] == True]
         if len(bull_div) > 0:
@@ -352,22 +356,16 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                                       mode='markers', marker=dict(symbol='triangle-down', size=10, color='#ff1744'),
                                       name='Bear Div', showlegend=False), row=2, col=1)
 
-    # Legend notu
     if not df.empty:
         fig.add_trace(go.Scatter(
             x=[df.index[0]], y=[df['Close'].iloc[0]], 
             mode='lines',
-            line=dict(color='rgba(0,0,0,0)', width=0), # Çizgi tamamen görünmez
+            line=dict(color='rgba(0,0,0,0)', width=0),
             name='<span style="font-size:12px; color:red; font-weight:bold;"> Üstüne Tıklayarak İndikatörü Açabilirsiniz</span>',
             showlegend=True,
-            hoverinfo='skip' # Mouse üzerine gelince etkileşim olmasın
+            hoverinfo='skip'
         ), row=1, col=1)
 
-    # ============================================================
-    # TRADINGVIEW BENZERİ PAN/SCROLL İÇİN GÜNCELLENEN LAYOUT
-    # ============================================================
-    
-    # Ekranda görünecek başlangıç mum sayısı (X eksenini kısıtlar, kalanı scroll'a bırakır)
     visible_candles = 100
     if not df.empty and len(df) > visible_candles:
         view_start = df.index[-visible_candles]
@@ -379,10 +377,10 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
     fig.update_layout(
         template='plotly_white', 
         height=1200,
-        dragmode='pan', # Sürüklemeyi Pan (yatay kaydırma) moduna alır
+        dragmode='pan',
         barmode='stack',
         title=f"<b>{ticker}</b> Teknik Analizi",
-        margin=dict(l=10, r=60, t=50, b=10), # Sağ marj (r) y ekseni için genişletildi
+        margin=dict(l=10, r=60, t=50, b=10),
         legend=dict(
             font=dict(size=11),       
             itemwidth=30,             
@@ -392,24 +390,20 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
             yanchor='top',
             bgcolor='rgba(255,255,255,0.6)' 
         ),
-        # X Ekseni Ayarları
         xaxis=dict(
-            range=[view_start, view_end], # Başlangıçta 100 mum görünür
+            range=[view_start, view_end],
             rangeslider=dict(visible=False), 
             fixedrange=False, 
             autorange=False
         ),
-        # Y Ekseni Ayarları
         yaxis=dict(
-            side="right", # Fiyat skalasını sağa al (Tradingview tarzı)
+            side="right",
             fixedrange=False, 
-            autorange=True # Kaydırdıkça fiyatın otomatik ölçeklenmesini sağlar
+            autorange=True
         )
     )
     
-    # Alt grafiğin ve üst grafiğin X eksenini birbirine bağla (senkronize kaydırma)
     fig.update_xaxes(matches='x')
-
     return fig
 
 
@@ -424,7 +418,6 @@ Baslangic = col1.date_input("Başlangıç", value=datetime.now() - timedelta(day
 Bitis = col2.date_input("Bitiş", value=datetime.now())
 Secilen_Periyot = st.sidebar.selectbox("Periyot", ["15m", "30m", "1h", "2h", "4h", "8h", "1d", "1wk"], index=4)
 
-# GÜNCELLEME 3: Grafik tipi seçimi buraya eklendi
 st.sidebar.markdown("---")
 GRAFIK_TIPI = st.sidebar.radio("Grafik Görünümü", ["Çizgi (Line)", "Mum (Candlestick)"], horizontal=True)
 
@@ -437,6 +430,7 @@ st.sidebar.subheader("📊 Göstergeler")
 show_kama = st.sidebar.checkbox("KAMA", value=True)
 show_supertrend = st.sidebar.checkbox("SuperTrend (AL/SAT)", value=True)
 show_stochrsi = st.sidebar.checkbox("Divergence Osilatörü", value=True)
+show_pivot = st.sidebar.checkbox("Standard Pivot Noktaları", value=True) # GÜNCELLEME: Pivot eklendi
 show_fib = st.sidebar.checkbox("Fibonacci Seviyeleri", value=False)
 show_vrvp = st.sidebar.checkbox("VRVP (Hacim Profili)", value=True)
 show_sma = st.sidebar.checkbox("SMA", value=True)
@@ -452,7 +446,7 @@ st.sidebar.subheader("🎯 Hassasiyet Ayarları")
 KAMA_HIZI = st.sidebar.slider("KAMA Hızı", 5, 50, 10) if show_kama else 10
 TREND_CARPAN = st.sidebar.slider("Trend Çarpanı", 1.0, 5.0, 2.0, 0.5) if show_supertrend else 2.0
 OSILATOR_PER = st.sidebar.slider("Divergence RSI Periyodu", 7, 30, 14) if show_stochrsi else 14
-DIV_LOOKBACK = st.sidebar.slider("Divergence Lookback", 2, 20, 5) if show_stochrsi else 5 # GÜNCELLEME: Slider eklendi
+DIV_LOOKBACK = st.sidebar.slider("Divergence Lookback", 2, 20, 5) if show_stochrsi else 5
 HACIM_DETAY = st.sidebar.slider("Hacim Detayı", 20, 100, 40) if show_vrvp else 40
 FIB_BAKIS = st.sidebar.number_input("Fib Geriye Bakış (Mum)", value=100) if show_fib else 100
 
@@ -471,7 +465,7 @@ if st.sidebar.button("Analizi Başlat"):
             KAMA_HIZI, TREND_CARPAN, OSILATOR_PER, HACIM_DETAY, FIB_BAKIS,
             show_kama, show_supertrend, show_stochrsi, DIV_LOOKBACK, show_fib, show_vrvp,
             show_sma, SMA_1_LEN, SMA_2_LEN, show_bb, BB_LEN, BB_STD,
-            show_ichimoku, GRAFIK_TIPI 
+            show_ichimoku, show_pivot, GRAFIK_TIPI # GÜNCELLEME: show_pivot fonksiyona geçirildi
         )
         if fig:
             config = {'scrollZoom': True, 'displayModeBar': True}
@@ -497,6 +491,7 @@ else:
        BB Periyodu hareketli ortalamanın kaç periyot üzerinden hesaplanacağını belirler. Artarsa uzun vadeli trend görülür ama erken sinyal kaçabilir. Azalırsa yanlış sinyal artar.
        BB Standart Sapma bantların ortalamanın ne kadar uzağına çizileceğini belirler. Artarsa Sinyaller azalır ama gelen sinyaller daha güçlü olur. Azalırsa yanlış sinyal artar.
     * **Ichimoku Cloud:** Bulut (Kumo) destek/direnç, Tenkan/Kijun kesişmeleri sinyal üretir.
+    * **Pivot Noktaları (Standard Pivot):** Bir önceki mumun Yüksek, Düşük ve Kapanış fiyatlarına göre hesaplanan matematiksel destek (S1, S2, S3) ve direnç (R1, R2, R3) seviyeleridir. İşlem hedeflerini belirlemede çok kullanışlıdır.
 
     #### 📈 Divergence Osilatörü ve Hacim Okuma
     * **Yeşil Çizgi (Momentum):** RSI'ın sıfır merkezli hali. Sıfırın üstü yükseliş bölgesi, altı düşüş bölgesidir.
@@ -546,10 +541,3 @@ else:
 
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
-
-
-
-
-
-
-
