@@ -350,7 +350,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
         # Plotly legend TERS sırada gösterir.
         # İstenen legend sırası (yukarıdan aşağı):
         #   Üstüne Tıklayarak...   ← indikatörlerin hemen altında
-        #   ── Çoklu Sinyal Skorları ──
+        #   ── Temel Sinyaller ──
         #   skorlar + detaylar
         # Bu yüzden ekleme sırası tam tersi olmalı: önce skorlar, sonra başlık, en son Tıklayarak.
         # 1) Skor detaylarını ters sırada ekle (en alttaki skor önce)
@@ -380,7 +380,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
         fig.add_trace(go.Scatter(
             x=[df.index[0]], y=[df['Close'].iloc[0]],
             mode='lines', line=dict(color='rgba(0,0,0,0)', width=0),
-            name='<span style="font-size:13px; color:#333; font-weight:bold;">── Çoklu Sinyal Skorları ──</span>',
+            name='<span style="font-size:13px; color:#333; font-weight:bold;">── Temel Sinyaller ──</span>',
             showlegend=True, hoverinfo='skip'
         ), row=1, col=1)
 
@@ -707,11 +707,12 @@ else:
     * **ABD Hisseleri:** Direkt sembol yeterli. Örn: `AAPL`, `TSLA`, `MSFT`
     * **Döviz / Emtia:** `EURUSD=X`, `GC=F` (Altın), `CL=F` (Petrol)
 
-    #### 📊 Çoklu Sinyal Skorları (Legend Alt Bölümü)
+    #### 📊 Temel Sinyaller (Legend Alt Bölümü)
     * Grafik oluşturulduktan sonra sağdaki legend'ın altında her skor grubu için **puan/max** ve **%yüzde** gösterilir.
     * **✔** koşul sağlandı, **✘** koşul sağlanmadı anlamına gelir.
     * Skorlar yatırım tavsiyesi değildir; sadece teknik koşulların özetini sunar.
     ---
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
+
 
