@@ -163,6 +163,15 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
         df.columns = df.columns.get_level_values(0)
     df.columns = [c.strip().title() for c in df.columns]
 
+    # --- EKLENEN ANLIK FİYAT ÇEKME BLOĞU ---
+    try:
+        ticker_obj = yf.Ticker(ticker)
+        anlik_gercek_fiyat = ticker_obj.fast_info['lastPrice']
+    except Exception as e:
+        anlik_gercek_fiyat = None
+        st.warning(f"Anlık fiyat çekilemedi: {e}")
+    # ---------------------------------------
+
     # 2. Resampling
     if per in resample_map:
         df = df.resample(resample_map[per]).agg({
@@ -344,7 +353,6 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
         #   ── Çoklu Sinyal Skorları ──
         #   skorlar + detaylar
         # Bu yüzden ekleme sırası tam tersi olmalı: önce skorlar, sonra başlık, en son Tıklayarak.
-
         # 1) Skor detaylarını ters sırada ekle (en alttaki skor önce)
         for baslik, veri in list(skorlar.items()):
             p, m = veri['puan'], veri['max']
@@ -480,15 +488,17 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
 
     # Son fiyat çizgisi
     if not df.empty:
-        last_close = df['Close'].iloc[-1]
+        # --- EKLENEN ANLIK FİYAT ÇİZGİSİ BLOĞU ---
+        gosterilecek_fiyat = anlik_gercek_fiyat if anlik_gercek_fiyat is not None else df['Close'].iloc[-1]
         prev_close = df['Close'].iloc[-2] if len(df) > 1 else df['Open'].iloc[-1]
-        price_color = "#00e676" if last_close >= prev_close else "#ff1744"
-        fig.add_hline(y=last_close, line_dash="dot", line_width=1, line_color=price_color,
-                      annotation_text=f"{last_close:.2f}",
+        price_color = "#00e676" if gosterilecek_fiyat >= prev_close else "#ff1744"
+        fig.add_hline(y=gosterilecek_fiyat, line_dash="dot", line_width=1, line_color=price_color,
+                      annotation_text=f"Anlık: {gosterilecek_fiyat:.2f}",
                       annotation_position="right",
                       annotation_bgcolor=price_color,
                       annotation_font_color="black",
                       row=1, col=1)
+        # ------------------------------------------
 
     # VRVP
     if show_vrvp:
@@ -600,7 +610,7 @@ show_ichimoku   = st.sidebar.checkbox("Ichimoku Cloud",          value=True)
 st.sidebar.markdown("---")
 st.sidebar.subheader("🎯 Hassasiyet Ayarları")
 
-KAMA_HIZI    = st.sidebar.slider("KAMA Hızı",               5,  50,  10)         if show_kama       else 10
+KAMA_HIZI    = st.sidebar.slider("KAMA Hızı",               5,  50,  10)         if show_kama        else 10
 TREND_CARPAN = st.sidebar.slider("Trend Çarpanı",           1.0, 5.0, 2.0, 0.5) if show_supertrend else 2.0
 OSILATOR_PER = st.sidebar.slider("Divergence RSI Periyodu", 7,  30,  14)         if show_stochrsi   else 14
 DIV_LOOKBACK = st.sidebar.slider("Divergence Lookback",     2,  20,  5)          if show_stochrsi   else 5
@@ -701,11 +711,6 @@ else:
     * Grafik oluşturulduktan sonra sağdaki legend'ın altında her skor grubu için **puan/max** ve **%yüzde** gösterilir.
     * **✔** koşul sağlandı, **✘** koşul sağlanmadı anlamına gelir.
     * Skorlar yatırım tavsiyesi değildir; sadece teknik koşulların özetini sunar.
-
     ---
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
-
-
-
-
