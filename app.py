@@ -437,7 +437,7 @@ st.sidebar.subheader("📊 Göstergeler")
 show_kama = st.sidebar.checkbox("KAMA", value=True)
 show_supertrend = st.sidebar.checkbox("SuperTrend (AL/SAT)", value=True)
 show_stochrsi = st.sidebar.checkbox("Divergence Osilatörü", value=True)
-show_fib = st.sidebar.checkbox("Fibonacci Seviyeleri", value=True)
+show_fib = st.sidebar.checkbox("Fibonacci Seviyeleri", value=False)
 show_vrvp = st.sidebar.checkbox("VRVP (Hacim Profili)", value=True)
 show_sma = st.sidebar.checkbox("SMA", value=True)
 show_bb = st.sidebar.checkbox("Bollinger Bands", value=True)
@@ -546,6 +546,7 @@ else:
 
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
+
 
 
 
