@@ -128,7 +128,7 @@ def skor_annotation_html(skorlar):
     """Skorları Plotly annotation için HTML string'e çevirir."""
     if not skorlar:
         return ""
-    satirlar = ["<b>── Çoklu Sinyal Skorları ──</b>"]
+    satirlar = ["<b>── Temel Sinyaller ──</b>"]
     for baslik, veri in skorlar.items():
         p, m = veri['puan'], veri['max']
         yuzde = int(p / m * 100) if m > 0 else 0
@@ -714,3 +714,4 @@ else:
     ---
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
+
