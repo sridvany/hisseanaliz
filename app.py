@@ -333,6 +333,42 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                         column_widths=[0.85, 0.15], row_heights=row_heights,
                         vertical_spacing=0.05, horizontal_spacing=0.01)
 
+    # ============================================================
+    # SINYAL SKORLARI — İLK EKLENEN = LEGEND'DA EN ALTTA
+    # ============================================================
+    if not df.empty:
+        fig.add_trace(go.Scatter(
+            x=[df.index[0]], y=[df['Close'].iloc[0]],
+            mode='lines', line=dict(color='rgba(0,0,0,0)', width=0),
+            name='<span style="font-size:13px; color:#333; font-weight:bold;">── Çoklu Sinyal Skorları ──</span>',
+            showlegend=True, hoverinfo='skip'
+        ), row=1, col=1)
+        for baslik, veri in skorlar.items():
+            p, m = veri['puan'], veri['max']
+            yuzde = int(p / m * 100) if m > 0 else 0
+            renk = "#00c853" if "AL" in baslik else "#ff1744"
+            skor_label = f'<span style="color:{renk}; font-size:11px;"><b>{baslik}</b>  {p}/{m} [{"█"*p}{"░"*(m-p)}] %{yuzde}</span>'
+            fig.add_trace(go.Scatter(
+                x=[df.index[0]], y=[df['Close'].iloc[0]],
+                mode='lines', line=dict(color='rgba(0,0,0,0)', width=0),
+                name=skor_label, showlegend=True, hoverinfo='skip'
+            ), row=1, col=1)
+            for aciklama, durum in veri['detay']:
+                isaret = "✔" if durum else "✘"
+                renk2 = "#00c853" if durum else "#aaaaaa"
+                fig.add_trace(go.Scatter(
+                    x=[df.index[0]], y=[df['Close'].iloc[0]],
+                    mode='lines', line=dict(color='rgba(0,0,0,0)', width=0),
+                    name=f'<span style="color:{renk2}; font-size:10px;">  {isaret} {aciklama}</span>',
+                    showlegend=True, hoverinfo='skip'
+                ), row=1, col=1)
+        fig.add_trace(go.Scatter(
+            x=[df.index[0]], y=[df['Close'].iloc[0]],
+            mode='lines', line=dict(color='rgba(0,0,0,0)', width=0),
+            name='<span style="font-size:12px; color:red; font-weight:bold;"> Üstüne Tıklayarak İndikatörü Açabilirsiniz</span>',
+            showlegend=True, hoverinfo='skip'
+        ), row=1, col=1)
+
     # Grafik tipi
     if chart_type == "Mum (Candlestick)":
         fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'],
@@ -474,70 +510,6 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
             fig.add_trace(go.Scatter(x=bear_div.index, y=bear_div['Mom'],
                                       mode='markers', marker=dict(symbol='triangle-down', size=10, color='#ff1744'),
                                       name='Bear Div', showlegend=False), row=2, col=1)
-
-    # ============================================================
-    # LEGEND'A SINYAL SKORLARI EKLENİYOR
-    # (Tüm görsel trace'lerden SONRA eklenir → legend'da en altta görünür)
-    # ============================================================
-    if not df.empty:
-        # Önce "Tıklayarak Aç" notu
-        fig.add_trace(go.Scatter(
-            x=[df.index[0]], y=[df['Close'].iloc[0]],
-            mode='lines',
-            line=dict(color='rgba(0,0,0,0)', width=0),
-            name='<span style="font-size:12px; color:red; font-weight:bold;"> Üstüne Tıklayarak İndikatörü Açabilirsiniz</span>',
-            showlegend=True,
-            hoverinfo='skip'
-        ), row=1, col=1)
-
-        # Sonra skor başlığı
-        fig.add_trace(go.Scatter(
-            x=[df.index[0]], y=[df['Close'].iloc[0]],
-            mode='lines',
-            line=dict(color='rgba(0,0,0,0)', width=0),
-            name='<span style="font-size:13px; color:#333; font-weight:bold;">── Çoklu Sinyal Skorları ──</span>',
-            showlegend=True,
-            hoverinfo='skip'
-        ), row=1, col=1)
-
-        # Her skor için bir legend satırı
-        for baslik, veri in skorlar.items():
-            p, m = veri['puan'], veri['max']
-            yuzde = int(p / m * 100) if m > 0 else 0
-            bar_dolu = "█" * p
-            bar_bos  = "░" * (m - p)
-            renk = "#00c853" if "AL" in baslik else "#ff1744"
-
-            skor_label = (
-                f'<span style="color:{renk}; font-size:11px;">'
-                f'<b>{baslik}</b>  {p}/{m} [{bar_dolu}{bar_bos}] %{yuzde}'
-                f'</span>'
-            )
-            fig.add_trace(go.Scatter(
-                x=[df.index[0]], y=[df['Close'].iloc[0]],
-                mode='lines',
-                line=dict(color='rgba(0,0,0,0)', width=0),
-                name=skor_label,
-                showlegend=True,
-                hoverinfo='skip'
-            ), row=1, col=1)
-
-            for aciklama, durum in veri['detay']:
-                isaret = "✔" if durum else "✘"
-                renk2  = "#00c853" if durum else "#aaaaaa"
-                detay_label = (
-                    f'<span style="color:{renk2}; font-size:10px;">'
-                    f'  {isaret} {aciklama}'
-                    f'</span>'
-                )
-                fig.add_trace(go.Scatter(
-                    x=[df.index[0]], y=[df['Close'].iloc[0]],
-                    mode='lines',
-                    line=dict(color='rgba(0,0,0,0)', width=0),
-                    name=detay_label,
-                    showlegend=True,
-                    hoverinfo='skip'
-                ), row=1, col=1)
 
     # ============================================================
     # Layout
