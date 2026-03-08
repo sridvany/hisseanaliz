@@ -10,10 +10,10 @@ from datetime import datetime, timedelta
 # Sayfa Genişliği Ayarı
 st.set_page_config(layout="wide", page_title="AI Teknik Analiz Terminali")
 
-# GÜNCELLEME 1: Fonksiyona 'chart_type' ve 'div_lookback' parametreleri eklendi
+# GÜNCELLEME 1: Fonksiyona 'chart_type' ve 'div_lookback' parametrelerine ek olarak 'show_ema', 'ema1_len', 'ema2_len' eklendi
 def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_len, v_bins, f_look,
                                    show_kama, show_supertrend, show_stochrsi, div_lookback, show_fib, show_vrvp,
-                                   show_sma, sma1_len, sma2_len, show_bb, bb_len, bb_std,
+                                   show_sma, sma1_len, sma2_len, show_ema, ema1_len, ema2_len, show_bb, bb_len, bb_std,
                                    show_ichimoku, chart_type):
     # 1. Veri Çekme (resampling gereken periyotlar için 1h çekip dönüştürme)
     resample_map = {"2h": "2h", "4h": "4h", "8h": "8h"}
@@ -121,6 +121,23 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
         except Exception as e:
             st.warning(f"SMA hatası: {e}")
             show_sma = False
+
+    # EMA 1 ve EMA 2 (YENİ EKLENDİ)
+    if show_ema:
+        try:
+            ema1_result = ta.ema(df['Close'], length=ema1_len)
+            ema2_result = ta.ema(df['Close'], length=ema2_len)
+            
+            if ema1_result is not None:
+                df['EMA_1'] = ema1_result
+            if ema2_result is not None:
+                df['EMA_2'] = ema2_result
+                
+            if ema1_result is None and ema2_result is None:
+                show_ema = False
+        except Exception as e:
+            st.warning(f"EMA hatası: {e}")
+            show_ema = False
 
     # Bollinger Bands
     if show_bb:
@@ -257,6 +274,16 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
         if 'SMA_2' in df.columns:
             fig.add_trace(go.Scatter(x=df.index, y=df['SMA_2'],
                                       line=dict(color='#2196f3', width=2), name=f'SMA 2 ({sma2_len})', visible='legendonly'), row=1, col=1)
+
+    # EMA 1 ve EMA 2 Çizimi (YENİ EKLENDİ)
+    # KAPALI BAŞLASIN (visible='legendonly')
+    if show_ema:
+        if 'EMA_1' in df.columns:
+            fig.add_trace(go.Scatter(x=df.index, y=df['EMA_1'],
+                                      line=dict(color='#ab47bc', width=2), name=f'EMA 1 ({ema1_len})', visible='legendonly'), row=1, col=1)
+        if 'EMA_2' in df.columns:
+            fig.add_trace(go.Scatter(x=df.index, y=df['EMA_2'],
+                                      line=dict(color='#26a69a', width=2), name=f'EMA 2 ({ema2_len})', visible='legendonly'), row=1, col=1)
 
     # Bollinger Bands
     # KAPALI BAŞLASIN (visible='legendonly')
@@ -440,6 +467,7 @@ show_stochrsi = st.sidebar.checkbox("Divergence Osilatörü", value=True)
 show_fib = st.sidebar.checkbox("Fibonacci Seviyeleri", value=False)
 show_vrvp = st.sidebar.checkbox("VRVP (Hacim Profili)", value=True)
 show_sma = st.sidebar.checkbox("SMA", value=True)
+show_ema = st.sidebar.checkbox("EMA", value=False) # YENİ EKLENDİ
 show_bb = st.sidebar.checkbox("Bollinger Bands", value=True)
 show_ichimoku = st.sidebar.checkbox("Ichimoku Cloud", value=True)
 
@@ -458,6 +486,11 @@ FIB_BAKIS = st.sidebar.number_input("Fib Geriye Bakış (Mum)", value=100) if sh
 
 SMA_1_LEN = st.sidebar.slider("SMA 1 Periyodu", 5, 200, 50) if show_sma else 50
 SMA_2_LEN = st.sidebar.slider("SMA 2 Periyodu", 5, 400, 200) if show_sma else 200
+
+# EMA SLİDER'LARI (YENİ EKLENDİ)
+EMA_1_LEN = st.sidebar.slider("EMA 1 Periyodu", 5, 200, 20) if show_ema else 20
+EMA_2_LEN = st.sidebar.slider("EMA 2 Periyodu", 5, 400, 50) if show_ema else 50
+
 BB_LEN = st.sidebar.slider("BB Periyodu", 5, 50, 20) if show_bb else 20
 BB_STD = st.sidebar.slider("BB Standart Sapma", 1.0, 4.0, 2.0, 0.5) if show_bb else 2.0
 
@@ -470,7 +503,7 @@ if st.sidebar.button("Analizi Başlat"):
             Hisse, Baslangic, Bitis, Secilen_Periyot,
             KAMA_HIZI, TREND_CARPAN, OSILATOR_PER, HACIM_DETAY, FIB_BAKIS,
             show_kama, show_supertrend, show_stochrsi, DIV_LOOKBACK, show_fib, show_vrvp,
-            show_sma, SMA_1_LEN, SMA_2_LEN, show_bb, BB_LEN, BB_STD,
+            show_sma, SMA_1_LEN, SMA_2_LEN, show_ema, EMA_1_LEN, EMA_2_LEN, show_bb, BB_LEN, BB_STD,
             show_ichimoku, GRAFIK_TIPI 
         )
         if fig:
