@@ -152,7 +152,8 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
     # 1. Veri Çekme
     resample_map = {"2h": "2h", "4h": "4h", "8h": "8h"}
     raw_p = "1h" if per in resample_map else per
-    df = yf.download(ticker, start=start, end=end, interval=raw_p, auto_adjust=True)
+    end_with_today = end + timedelta(days=1)
+    df = yf.download(ticker, start=start, end=end_with_today, interval=raw_p, auto_adjust=True)
 
     if df.empty:
         st.error("Veri bulunamadı. Lütfen tarih sınırlarını veya sembolü kontrol edin.")
@@ -704,6 +705,7 @@ else:
     ---
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
+
 
 
 
