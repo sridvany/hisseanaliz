@@ -607,7 +607,7 @@ Secilen_Periyot = st.sidebar.selectbox("Periyot", ["15m", "30m", "1h", "2h", "4h
 st.sidebar.markdown("---")
 
 # EKLENEN OTOMATİK YENİLEME AYARI
-oto_yenile = st.sidebar.checkbox("Otomatik Yenile (1 Dk)", value=False)
+oto_yenile = st.sidebar.checkbox("Otomatik Yenile (1 Dk)", value=True)
 if oto_yenile:
     if st_autorefresh is not None:
         st_autorefresh(interval=60000, key="data_refresh")
@@ -750,4 +750,5 @@ else:
     ---
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
+
 
