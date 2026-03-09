@@ -7,6 +7,13 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
 
+# --- EKLENEN OTOMATİK YENİLEME KÜTÜPHANESİ ---
+try:
+    from streamlit_autorefresh import st_autorefresh
+except ImportError:
+    st_autorefresh = None
+# ---------------------------------------------
+
 st.set_page_config(layout="wide", page_title="AI Teknik Analiz Terminali")
 
 
@@ -149,28 +156,37 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                                    show_sma, sma1_len, sma2_len, show_ema, ema1_len, ema2_len, show_bb, bb_len, bb_std,
                                    show_ichimoku, chart_type):
 
-    # 1. Veri Çekme
+    # 1. Veri Çekme (GÜNCELLENDİ)
     resample_map = {"2h": "2h", "4h": "4h", "8h": "8h"}
     raw_p = "1h" if per in resample_map else per
-    end_with_today = end + timedelta(days=1)
-    df = yf.download(ticker, start=start, end=end_with_today, interval=raw_p, auto_adjust=True)
+    
+    # Bitiş tarihi bugün veya sonrasındaysa end parametresini yollamıyoruz (Canlı veri için)
+    if end >= datetime.now().date():
+        df = yf.download(ticker, start=start, interval=raw_p, auto_adjust=True)
+    else:
+        end_with_today = end + timedelta(days=1)
+        df = yf.download(ticker, start=start, end=end_with_today, interval=raw_p, auto_adjust=True)
 
     if df.empty:
         st.error("Veri bulunamadı. Lütfen tarih sınırlarını veya sembolü kontrol edin.")
-        return None
+        return None, None, None
 
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
     df.columns = [c.strip().title() for c in df.columns]
 
-    # --- EKLENEN ANLIK FİYAT ÇEKME BLOĞU ---
+    # --- EKLENEN ANLIK FİYAT ÇEKME BLOĞU (GÜNCELLENDİ) ---
     try:
-        ticker_obj = yf.Ticker(ticker)
-        anlik_gercek_fiyat = ticker_obj.fast_info['lastPrice']
+        canli_veri = yf.download(ticker, period="1d", interval="1m", progress=False)
+        if not canli_veri.empty:
+            if isinstance(canli_veri.columns, pd.MultiIndex):
+                canli_veri.columns = canli_veri.columns.get_level_values(0)
+            anlik_gercek_fiyat = float(canli_veri['Close'].iloc[-1])
+        else:
+            anlik_gercek_fiyat = float(df['Close'].iloc[-1])
     except Exception as e:
-        anlik_gercek_fiyat = None
-        st.warning(f"Anlık fiyat çekilemedi: {e}")
-    # ---------------------------------------
+        anlik_gercek_fiyat = float(df['Close'].iloc[-1])
+    # ------------------------------------------------------
 
     # 2. Resampling
     if per in resample_map:
@@ -347,12 +363,6 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
     # SINYAL SKORLARI — İLK EKLENEN = LEGEND'DA EN ALTTA
     # ============================================================
     if not df.empty:
-        # Plotly legend TERS sırada gösterir.
-        # İstenen legend sırası (yukarıdan aşağı):
-        #   Üstüne Tıklayarak...   ← indikatörlerin hemen altında
-        #   ── Temel Sinyaller ──
-        #   skorlar + detaylar
-        # Bu yüzden ekleme sırası tam tersi olmalı: önce skorlar, sonra başlık, en son Tıklayarak.
         # 1) Skor detaylarını ters sırada ekle (en alttaki skor önce)
         for baslik, veri in list(skorlar.items()):
             p, m = veri['puan'], veri['max']
@@ -487,10 +497,11 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                           row=1, col=1)
 
     # Son fiyat çizgisi
+    prev_close = None
     if not df.empty:
         # --- EKLENEN ANLIK FİYAT ÇİZGİSİ BLOĞU ---
-        gosterilecek_fiyat = anlik_gercek_fiyat if anlik_gercek_fiyat is not None else df['Close'].iloc[-1]
-        prev_close = df['Close'].iloc[-2] if len(df) > 1 else df['Open'].iloc[-1]
+        gosterilecek_fiyat = anlik_gercek_fiyat if anlik_gercek_fiyat is not None else float(df['Close'].iloc[-1])
+        prev_close = float(df['Close'].iloc[-2]) if len(df) > 1 else float(df['Open'].iloc[-1])
         price_color = "#00e676" if gosterilecek_fiyat >= prev_close else "#ff1744"
         fig.add_hline(y=gosterilecek_fiyat, line_dash="dot", line_width=1, line_color=price_color,
                       annotation_text=f"Anlık: {gosterilecek_fiyat:.2f}",
@@ -577,7 +588,9 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
     )
 
     fig.update_xaxes(matches='x')
-    return fig
+    
+    # Çoklu dönüş: figürü, anlık fiyatı ve hesaplanan önceki kapanışı döndürür
+    return fig, anlik_gercek_fiyat, prev_close
 
 
 # ============================================================
@@ -592,30 +605,41 @@ Bitis          = col2.date_input("Bitiş",     value=datetime.now())
 Secilen_Periyot = st.sidebar.selectbox("Periyot", ["15m", "30m", "1h", "2h", "4h", "8h", "1d", "1wk"], index=4)
 
 st.sidebar.markdown("---")
+
+# EKLENEN OTOMATİK YENİLEME AYARI
+oto_yenile = st.sidebar.checkbox("Otomatik Yenile (1 Dk)", value=False)
+if oto_yenile:
+    if st_autorefresh is not None:
+        st_autorefresh(interval=60000, key="data_refresh")
+    else:
+        st.sidebar.warning("Otomatik yenileme için terminalden `pip install streamlit-autorefresh` komutunu çalıştırın.")
+
+st.sidebar.markdown("---")
+
 GRAFIK_TIPI = st.sidebar.radio("Grafik Görünümü", ["Çizgi (Line)", "Mum (Candlestick)"], horizontal=True)
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("📊 Göstergeler")
 
-show_kama       = st.sidebar.checkbox("KAMA",                    value=True)
-show_supertrend = st.sidebar.checkbox("SuperTrend (AL/SAT)",     value=True)
-show_stochrsi   = st.sidebar.checkbox("Divergence Osilatörü",    value=True)
-show_fib        = st.sidebar.checkbox("Fibonacci Seviyeleri",    value=False)
-show_vrvp       = st.sidebar.checkbox("VRVP (Hacim Profili)",    value=True)
-show_sma        = st.sidebar.checkbox("SMA",                     value=True)
-show_ema        = st.sidebar.checkbox("EMA",                     value=False)
-show_bb         = st.sidebar.checkbox("Bollinger Bands",         value=True)
-show_ichimoku   = st.sidebar.checkbox("Ichimoku Cloud",          value=True)
+show_kama       = st.sidebar.checkbox("KAMA",                     value=True)
+show_supertrend = st.sidebar.checkbox("SuperTrend (AL/SAT)",      value=True)
+show_stochrsi   = st.sidebar.checkbox("Divergence Osilatörü",     value=True)
+show_fib        = st.sidebar.checkbox("Fibonacci Seviyeleri",     value=False)
+show_vrvp       = st.sidebar.checkbox("VRVP (Hacim Profili)",     value=True)
+show_sma        = st.sidebar.checkbox("SMA",                      value=True)
+show_ema        = st.sidebar.checkbox("EMA",                      value=False)
+show_bb         = st.sidebar.checkbox("Bollinger Bands",          value=True)
+show_ichimoku   = st.sidebar.checkbox("Ichimoku Cloud",           value=True)
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🎯 Hassasiyet Ayarları")
 
-KAMA_HIZI    = st.sidebar.slider("KAMA Hızı",               5,  50,  10)         if show_kama        else 10
+KAMA_HIZI    = st.sidebar.slider("KAMA Hızı",               5,  50,  10)          if show_kama        else 10
 TREND_CARPAN = st.sidebar.slider("Trend Çarpanı",           1.0, 5.0, 2.0, 0.5) if show_supertrend else 2.0
-OSILATOR_PER = st.sidebar.slider("Divergence RSI Periyodu", 7,  30,  14)         if show_stochrsi   else 14
-DIV_LOOKBACK = st.sidebar.slider("Divergence Lookback",     2,  20,  5)          if show_stochrsi   else 5
-HACIM_DETAY  = st.sidebar.slider("Hacim Detayı",            20, 100, 40)         if show_vrvp       else 40
-FIB_BAKIS    = st.sidebar.number_input("Fib Geriye Bakış (Mum)", value=100)      if show_fib        else 100
+OSILATOR_PER = st.sidebar.slider("Divergence RSI Periyodu", 7,  30,  14)          if show_stochrsi   else 14
+DIV_LOOKBACK = st.sidebar.slider("Divergence Lookback",     2,  20,  5)           if show_stochrsi   else 5
+HACIM_DETAY  = st.sidebar.slider("Hacim Detayı",            20, 100, 40)          if show_vrvp       else 40
+FIB_BAKIS    = st.sidebar.number_input("Fib Geriye Bakış (Mum)", value=100)       if show_fib        else 100
 
 SMA_1_LEN = st.sidebar.slider("SMA 1 Periyodu", 5, 200, 50)  if show_sma else 50
 SMA_2_LEN = st.sidebar.slider("SMA 2 Periyodu", 5, 400, 200) if show_sma else 200
@@ -629,9 +653,9 @@ BB_STD = st.sidebar.slider("BB Standart Sapma", 1.0, 4.0, 2.0, 0.5) if show_bb e
 # ============================================================
 # ANALİZİ BAŞLAT
 # ============================================================
-if st.sidebar.button("Analizi Başlat"):
+if st.sidebar.button("Analizi Başlat") or oto_yenile:
     with st.spinner('Veriler hesaplanıyor...'):
-        fig = create_complete_trading_chart(
+        fig, anlik_fiyat, onceki_fiyat = create_complete_trading_chart(
             Hisse, Baslangic, Bitis, Secilen_Periyot,
             KAMA_HIZI, TREND_CARPAN, OSILATOR_PER, HACIM_DETAY, FIB_BAKIS,
             show_kama, show_supertrend, show_stochrsi, DIV_LOOKBACK, show_fib, show_vrvp,
@@ -639,6 +663,17 @@ if st.sidebar.button("Analizi Başlat"):
             show_ichimoku, GRAFIK_TIPI
         )
         if fig:
+            # --- EKLENEN CANLI METRİK KARTLARI ---
+            if anlik_fiyat is not None and onceki_fiyat is not None:
+                m1, m2, m3 = st.columns(3)
+                fiyat_farki = anlik_fiyat - onceki_fiyat
+                yuzde_fark = (fiyat_farki / onceki_fiyat) * 100
+                m1.metric(f"Anlık Fiyat ({Hisse})", f"{anlik_fiyat:.2f}", f"{yuzde_fark:.2f}%")
+                m2.metric("Seçilen Periyot", Secilen_Periyot)
+                m3.metric("Son Güncelleme Zamanı", datetime.now().strftime("%H:%M:%S"))
+                st.markdown("---")
+            # ------------------------------------
+
             config = {'scrollZoom': True, 'displayModeBar': True}
             st.plotly_chart(fig, use_container_width=True, config=config)
 else:
@@ -654,7 +689,7 @@ else:
     * **🔴 Kırmızı ▼D (Düşüş Uyumsuzluğu):** Fiyat daha yüksek tepe yaparken osilatör daha düşük tepe yapar. Bu, alım gücünün tükendiğini ve potansiyel bir aşağı dönüşü işaret eder.
 
     #### 🎯 İndikatör Mantığı (Emniyet Kemeriniz)
-    * **KAMA Hızı:** Değerini düşürürseniz fiyatı daha yakından izler, artırırsanız ana trendi gösterir.
+    * **KAMA Hızı:** Değerini düşürseniz fiyatı daha yakından izler, artırırsanız ana trendi gösterir.
     * **Trend Çarpanı:** Değerini 1.5 gibi seviyelere düşürürseniz 'AL/SAT' sinyalleri çok daha erken gelir.
     * **Osilatör Periyodu:** Divergence hesaplamasının RSI periyodunu belirler. Düşük değer daha hassas, yüksek değer daha az gürültülüdür.
     * **SMA:** Basit hareketli ortalama. İki farklı SMA seçerek kısa (örn: 20) ve uzun (örn: 50) dönem trendlerini karşılaştırabilirsiniz. Kısa SMA, uzun SMA'yı yukarı kestiğinde alım gücü artıyor demektir.
@@ -714,5 +749,3 @@ else:
     ---
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
-
-
