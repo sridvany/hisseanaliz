@@ -5,7 +5,7 @@ import numpy as np
 import pandas_ta as ta
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # --- EKLENEN OTOMATİK YENİLEME KÜTÜPHANESİ ---
 try:
@@ -670,7 +670,8 @@ if st.sidebar.button("Analizi Başlat") or oto_yenile:
                 yuzde_fark = (fiyat_farki / onceki_fiyat) * 100
                 m1.metric(f"Anlık Fiyat ({Hisse})", f"{anlik_fiyat:.2f}", f"{yuzde_fark:.2f}%")
                 m2.metric("Seçilen Periyot", Secilen_Periyot)
-                m3.metric("Son Güncelleme Zamanı", datetime.now().strftime("%H:%M:%S"))
+                tr_saati = datetime.now(timezone(timedelta(hours=3)))
+                m3.metric("Son Güncelleme Zamanı", tr_saati.strftime("%H:%M:%S"))
                 st.markdown("---")
             # ------------------------------------
 
@@ -749,3 +750,4 @@ else:
     ---
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
+
