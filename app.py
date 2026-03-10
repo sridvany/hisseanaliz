@@ -550,7 +550,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                 fill="toself",
                 fillcolor='rgba(255, 255, 0, 0.25)',
                 line=dict(color='yellow', width=1.5),
-                name='POC (Sarı Dikdörtgen)',
+                name='POC (Destek)',
                 showlegend=True,
                 hoverinfo='skip'
             ), row=1, col=1)
@@ -776,4 +776,5 @@ else:
     ---
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
+
 
