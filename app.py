@@ -154,7 +154,7 @@ def skor_annotation_html(skorlar):
 def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_len, v_bins, f_look,
                                    show_kama, show_supertrend, show_stochrsi, div_lookback, show_fib, show_vrvp,
                                    show_sma, sma1_len, sma2_len, show_ema, ema1_len, ema2_len, show_bb, bb_len, bb_std,
-                                   show_ichimoku, chart_type):
+                                   show_ichimoku, show_poc, chart_type):
 
     # 1. Veri Çekme (GÜNCELLENDİ)
     resample_map = {"2h": "2h", "4h": "4h", "8h": "8h"}
@@ -511,18 +511,47 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                       row=1, col=1)
         # ------------------------------------------
 
-    # VRVP
+    # --- VRVP & POC (SARI DİKDÖRTGEN) MANTIĞI ---
     if show_vrvp:
         bins = pd.cut(df['Close'], bins=v_bins, retbins=True)[1]
         df['V_T'] = df.apply(lambda r: 'B' if r['Close'] >= r['Open'] else 'S', axis=1)
+        
+        max_total_vol = -1
+        poc_price_low = 0
+        poc_price_high = 0
+
         for i in range(v_bins):
             m = (df['Close'] >= bins[i]) & (df['Close'] < bins[i + 1])
             vb = df[m & (df['V_T'] == 'B')]['Volume'].sum()
             vs = df[m & (df['V_T'] == 'S')]['Volume'].sum()
+            total_vol = vb + vs
+            
+            # POC'u Bul (En uzun hacim barı)
+            if total_vol > max_total_vol:
+                max_total_vol = total_vol
+                poc_price_low = bins[i]
+                poc_price_high = bins[i+1]
+
             fig.add_trace(go.Bar(x=[vs], y=[(bins[i] + bins[i + 1]) / 2], orientation='h',
                                   marker_color='rgba(239,83,80,0.4)', showlegend=False), row=1, col=2)
             fig.add_trace(go.Bar(x=[vb], y=[(bins[i] + bins[i + 1]) / 2], orientation='h',
                                   marker_color='rgba(38,166,154,0.4)', showlegend=False), row=1, col=2)
+        
+        # --- SARI DİKDÖRTGEN (POC) EKLEME ---
+        if show_poc and max_total_vol > 0:
+            # Legend'da açılıp kapanabilmesi için Scatter (fill) kullanıyoruz
+            x_coords = [df.index[0], df.index[-1], df.index[-1], df.index[0], df.index[0]]
+            y_coords = [poc_price_low, poc_price_low, poc_price_high, poc_price_high, poc_price_low]
+            
+            fig.add_trace(go.Scatter(
+                x=x_coords, y=y_coords,
+                fill="toself",
+                fillcolor='rgba(255, 255, 0, 0.25)',
+                line=dict(color='yellow', width=1.5),
+                name='POC (Sarı Dikdörtgen)',
+                showlegend=True,
+                hoverinfo='skip'
+            ), row=1, col=1)
 
     # Osilatör paneli
     if show_stochrsi:
@@ -626,6 +655,7 @@ show_supertrend = st.sidebar.checkbox("SuperTrend (AL/SAT)",      value=True)
 show_stochrsi   = st.sidebar.checkbox("Divergence Osilatörü",     value=True)
 show_fib        = st.sidebar.checkbox("Fibonacci Seviyeleri",     value=False)
 show_vrvp       = st.sidebar.checkbox("VRVP (Hacim Profili)",     value=True)
+show_poc        = st.sidebar.checkbox("Sarı Dikdörtgen (POC)",     value=True) # YENİ EKLENDİ
 show_sma        = st.sidebar.checkbox("SMA",                      value=True)
 show_ema        = st.sidebar.checkbox("EMA",                      value=False)
 show_bb         = st.sidebar.checkbox("Bollinger Bands",          value=True)
@@ -634,7 +664,7 @@ show_ichimoku   = st.sidebar.checkbox("Ichimoku Cloud",           value=True)
 st.sidebar.markdown("---")
 st.sidebar.subheader("🎯 Hassasiyet Ayarları")
 
-KAMA_HIZI    = st.sidebar.slider("KAMA Hızı",               5,  50,  10)          if show_kama        else 10
+KAMA_HIZI    = st.sidebar.slider("KAMA Hızı",              5,  50,  10)          if show_kama        else 10
 TREND_CARPAN = st.sidebar.slider("Trend Çarpanı",           1.0, 5.0, 2.0, 0.5) if show_supertrend else 2.0
 OSILATOR_PER = st.sidebar.slider("Divergence RSI Periyodu", 7,  30,  14)          if show_stochrsi   else 14
 DIV_LOOKBACK = st.sidebar.slider("Divergence Lookback",     2,  20,  5)           if show_stochrsi   else 5
@@ -660,7 +690,7 @@ if st.sidebar.button("Analizi Başlat") or oto_yenile:
             KAMA_HIZI, TREND_CARPAN, OSILATOR_PER, HACIM_DETAY, FIB_BAKIS,
             show_kama, show_supertrend, show_stochrsi, DIV_LOOKBACK, show_fib, show_vrvp,
             show_sma, SMA_1_LEN, SMA_2_LEN, show_ema, EMA_1_LEN, EMA_2_LEN, show_bb, BB_LEN, BB_STD,
-            show_ichimoku, GRAFIK_TIPI
+            show_ichimoku, show_poc, GRAFIK_TIPI
         )
         if fig:
             # --- EKLENEN CANLI METRİK KARTLARI ---
@@ -694,11 +724,8 @@ else:
     * **Trend Çarpanı:** Değerini 1.5 gibi seviyelere düşürürseniz 'AL/SAT' sinyalleri çok daha erken gelir.
     * **Osilatör Periyodu:** Divergence hesaplamasının RSI periyodunu belirler. Düşük değer daha hassas, yüksek değer daha az gürültülüdür.
     * **SMA:** Basit hareketli ortalama. İki farklı SMA seçerek kısa (örn: 20) ve uzun (örn: 50) dönem trendlerini karşılaştırabilirsiniz. Kısa SMA, uzun SMA'yı yukarı kestiğinde alım gücü artıyor demektir.
-    * **Bollinger Bands:** Fiyatın volatilite bandını gösterir. Bantlar daralırsa büyük hareket beklenir. 
-       BB Periyodu hareketli ortalamanın kaç periyot üzerinden hesaplanacağını belirler. Artarsa uzun vadeli trend görülür ama erken sinyal kaçabilir. Azalırsa yanlış sinyal artar.
-       BB Standart Sapma bantların ortalamanın ne kadar uzağına çizileceğini belirler. Artarsa Sinyaller azalır ama gelen sinyaller daha güçlü olur. Azalırsa yanlış sinyal artar.
+    * **Bollinger Bands:** Fiyatın volatilite bandını gösterir. Bantlar daralırsa büyük hareket beklenir. BB Periyodu hareketli ortalamanın kaç periyot üzerinden hesaplanacağını belirler. Artarsa uzun vadeli trend görülür ama erken sinyal kaçabilir. Azalırsa yanlış sinyal artar. BB Standart Sapma bantların ortalamanın ne kadar uzağına çizileceğini belirler. Artarsa Sinyaller azalır ama gelen sinyaller daha güçlü olur. Azalırsa yanlış sinyal artar.
     * **Ichimoku Cloud:** Bulut (Kumo) destek/direnç, Tenkan/Kijun kesişmeleri sinyal üretir.
-
     #### 📈 Divergence Osilatörü ve Hacim Okuma
     * **Yeşil Çizgi (Momentum):** RSI'ın sıfır merkezli hali. Sıfırın üstü yükseliş bölgesi, altı düşüş bölgesidir.
     * **Kırmızı Çizgi (Sinyal):** Momentumun 9 periyotluk ortalaması. Yeşil çizgi kırmızıyı yukarı keserse alım, aşağı keserse satım sinyalidir.
@@ -707,26 +734,23 @@ else:
     * **Yeşil Yatay Çizgiler (-20/-30 — Aşırı Satım):** Momentum bu bölgeye düştüğünde fiyat aşırı satım bölgesindedir. Yeşil çizgi bu bölgede kırmızıyı yukarı keserse güçlü alım sinyalidir.
     * **Uyumsuzluk (Divergence) — Yalan Dedektörü:** Bu gösterge fiyatın söylediği ile gerçekte olan arasındaki çelişkiyi yakalar. Fiyat yeni tepe yapıyorsa ama momentum yapmıyorsa (▼D), "Bu yükseliş yalan, güç tükeniyor" der. Fiyat yeni dip yapıyorsa ama momentum yapmıyorsa (▲D), "Bu düşüş yalan, satıcılar zayıflıyor" der. Aşırı bölgelerde (+30 üstü veya -30 altı) oluşan uyumsuzluklar en güvenilir yalan tespitleridir.
     * **VRVP (Hacim Profili):** Sağdaki barlar paranın en çok hangi fiyat seviyesinde maliyetlendiğini gösterir.
+    * **POC (Sarı Dikdörtgen):** Hacim profilindeki en uzun barın (en çok işlem gören fiyatın) olduğu seviyedir. Güçlü bir "mıknatıs" destek veya direnç görevi görür.
     * **Fibonacci Seviyeleri:** Fiyatın matematiksel olarak destek/direnç bulabileceği önemli oranları (%23.6, %38.2, %50, %61.8, %78.6) gösterir.
-
     #### 📐 SMA (Basit Hareketli Ortalama)
     * **Trend Yönü:** Fiyat SMA'nın üzerindeyse yükseliş trendi, altındaysa düşüş trendi hakimdir.
     * **Kesişme Sinyalleri:** Fiyat SMA'yı alttan yukarı keserse alım, üstten aşağı keserse satım sinyalidir.
     * **Golden Cross / Death Cross:** Kısa SMA (örn: 50), uzun SMA'yı (örn: 200) yukarı keserse "Golden Cross" (güçlü alım), aşağı keserse "Death Cross" (güçlü satım) oluşur.
     * **Periyot Seçimi:** Kısa periyot (10-20) kısa vadeli dalgalanmaları, uzun periyot (50-200) ana trendi gösterir.
-
     #### 🎸 Bollinger Bands (Volatilite Bantları)
     * **Aşırı Alım/Satım:** Fiyat üst banda yaklaşırsa aşırı alım bölgesi, alt banda yaklaşırsa aşırı satım bölgesidir.
     * **Squeeze (Daralma):** Bantlar birbirine yaklaşırsa büyük bir kırılım hareketi yakındır. Kırılımın yönü trendi belirler.
     * **Bant Dışı Dönüş:** Fiyat alt bandın dışına çıkıp tekrar içeri girerse potansiyel yukarı dönüş, üst bant için tersi geçerlidir.
     * **Orta Bant (SMA):** Orta çizgi destek/direnç görevi görür. Fiyat orta bandın üzerinde kalıyorsa trend güçlüdür.
-
     #### ☁️ Ichimoku Cloud (Bulut Sistemi)
     * **Bulut (Kumo) Yorumu:** Fiyat bulutun üstündeyse yükseliş, altındaysa düşüş trendi hakimdir. Bulutun içindeyse kararsız bölgedir.
     * **Tenkan/Kijun Kesişmesi:** Tenkan (mavi) Kijun'u (kırmızı) yukarı keserse alım sinyali, aşağı keserse satım sinyalidir.
     * **Bulut Kalınlığı:** Kalın bulut güçlü destek/direnç anlamına gelir, ince bulut ise zayıf bariyerdir.
     * **Chikou (Gecikmeli Çizgi):** Mor noktalı çizgi fiyatın 26 periyot gerisini gösterir. Fiyatın üzerindeyse trend güçlü, altındaysa trend zayıflıyor demektir.
-
     #### ⏱ Zaman Dilimi ve Geçmiş Veri Limitleri
     * **Seçenekler:** `15m`, `30m`, `1h`, `2h`, `4h`, `8h`, `1d`
     * **Maksimum Geriye Dönük Süreler:**
@@ -750,8 +774,3 @@ else:
     ---
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
-
-
-
-
-
