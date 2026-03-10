@@ -541,7 +541,9 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
         if show_poc and max_total_vol > 0:
             # Legend'da açılıp kapanabilmesi için Scatter (fill) kullanıyoruz
             x_coords = [df.index[0], df.index[-1], df.index[-1], df.index[0], df.index[0]]
-            y_coords = [poc_price_low, poc_price_low, poc_price_high, poc_price_high, poc_price_low]
+            poc_mid = (poc_price_low + poc_price_high) / 2
+            offset = (poc_price_high - poc_price_low) * 0.1  # %10 kalınlık (burayı küçülterek daha da inceltebilirsin)
+            y_coords = [poc_mid - offset, poc_mid - offset, poc_mid + offset, poc_mid + offset, poc_mid - offset]
             
             fig.add_trace(go.Scatter(
                 x=x_coords, y=y_coords,
@@ -774,3 +776,4 @@ else:
     ---
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
+
