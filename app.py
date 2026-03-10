@@ -413,7 +413,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
     # KAMA
     if show_kama:
         fig.add_trace(go.Scatter(x=df.index, y=df['KAMA'],
-                                  line=dict(color='#2962ff', width=2), name='KAMA'), row=1, col=1)
+                                  line=dict(color='#2962ff', width=2), name='KAMA (Direnç)'), row=1, col=1)
 
     # SuperTrend
     if show_supertrend:
@@ -776,6 +776,7 @@ else:
     ---
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
+
 
 
 
