@@ -558,9 +558,9 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
     # Osilatör paneli
     if show_stochrsi:
         fig.add_trace(go.Scatter(x=df.index, y=df['Mom'],
-                                  line=dict(color='#00c853', width=1.5), name='Momentum', visible='True'), row=2, col=1)
+                                  line=dict(color='#00c853', width=1.5), name='Momentum', visible=True), row=2, col=1)
         fig.add_trace(go.Scatter(x=df.index, y=df['Mom_Signal'],
-                                  line=dict(color='#ff1744', width=1.5), name='Sinyal', visible='True'), row=2, col=1)
+                                  line=dict(color='#ff1744', width=1.5), name='Sinyal', visible=True), row=2, col=1)
         fig.add_hline(y=0,   line_dash="solid", line_color="rgba(128,128,128,0.5)", row=2, col=1)
         fig.add_hline(y=30,  line_dash="dash",  line_color="rgba(255,23,68,0.5)",  annotation_text="30", row=2, col=1)
         fig.add_hline(y=20,  line_dash="dot",   line_color="rgba(255,23,68,0.3)",  row=2, col=1)
@@ -776,6 +776,7 @@ else:
     ---
     *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
     """)
+
 
 
 
