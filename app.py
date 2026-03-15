@@ -629,7 +629,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
 # ============================================================
 st.sidebar.header("🛠️ Analiz Ayarları")
 
-Hisse          = st.sidebar.text_input("Varlık Sembolü", value="GC=F")
+Hisse          = st.sidebar.text_input("Varlık Sembolü", value="PAXG-USD")
 col1, col2     = st.sidebar.columns(2)
 Baslangic      = col1.date_input("Başlangıç", value=datetime.now() - timedelta(days=120))
 Bitis          = col2.date_input("Bitiş",     value=datetime.now())
