@@ -169,13 +169,13 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
 
     if df.empty:
         st.error("Veri bulunamadı. Lütfen tarih sınırlarını veya sembolü kontrol edin.")
-        return None, None, None
+        return None, None, None, [], []
 
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
     df.columns = [c.strip().title() for c in df.columns]
 
-    # --- EKLENEN ANLIK FİYAT ÇEKME BLOĞU (GÜNCELLENDİ) ---
+    # --- ANLIK FİYAT ÇEKME (OPTİMİZE EDİLDİ) ---
     try:
         anlik_gercek_fiyat = float(yf.Ticker(ticker).fast_info['lastPrice'])
     except Exception:
@@ -493,7 +493,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
     # Son fiyat çizgisi
     prev_close = None
     if not df.empty:
-        # --- EKLENEN ANLIK FİYAT ÇİZGİSİ BLOĞU ---
+        # --- ANLIK FİYAT ÇİZGİSİ ---
         gosterilecek_fiyat = anlik_gercek_fiyat if anlik_gercek_fiyat is not None else float(df['Close'].iloc[-1])
         prev_close = float(df['Close'].iloc[-2]) if len(df) > 1 else float(df['Open'].iloc[-1])
         price_color = "#00e676" if gosterilecek_fiyat >= prev_close else "#ff1744"
@@ -503,9 +503,9 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                       annotation_bgcolor=price_color,
                       annotation_font_color="black",
                       row=1, col=1)
-        # ------------------------------------------
 
-    # --- VRVP & POC (SARI DİKDÖRTGEN) MANTIĞI ---
+    # --- VRVP & POC & TOP3 HACİM SEVİYELERİ ---
+    top3_hacim = []
     if show_vrvp:
         bins = pd.cut(df['Close'], bins=v_bins, retbins=True)[1]
         df['V_T'] = df.apply(lambda r: 'B' if r['Close'] >= r['Open'] else 'S', axis=1)
@@ -513,12 +513,15 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
         max_total_vol = -1
         poc_price_low = 0
         poc_price_high = 0
+        hacim_listesi = []
 
         for i in range(v_bins):
             m = (df['Close'] >= bins[i]) & (df['Close'] < bins[i + 1])
             vb = df[m & (df['V_T'] == 'B')]['Volume'].sum()
             vs = df[m & (df['V_T'] == 'S')]['Volume'].sum()
             total_vol = vb + vs
+            orta_fiyat = (bins[i] + bins[i + 1]) / 2
+            hacim_listesi.append((orta_fiyat, total_vol))
             
             # POC'u Bul (En uzun hacim barı)
             if total_vol > max_total_vol:
@@ -531,12 +534,15 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
             fig.add_trace(go.Bar(x=[vb], y=[(bins[i] + bins[i + 1]) / 2], orientation='h',
                                   marker_color='rgba(38,166,154,0.4)', showlegend=False), row=1, col=2)
         
+        # --- EN YÜKSEK HACİMLİ 3 SEVİYE ---
+        hacim_listesi.sort(key=lambda x: x[1], reverse=True)
+        top3_hacim = hacim_listesi[:3]
+
         # --- SARI DİKDÖRTGEN (POC) EKLEME ---
         if show_poc and max_total_vol > 0:
-            # Legend'da açılıp kapanabilmesi için Scatter (fill) kullanıyoruz
             x_coords = [df.index[0], df.index[-1], df.index[-1], df.index[0], df.index[0]]
             poc_mid = (poc_price_low + poc_price_high) / 2
-            offset = (poc_price_high - poc_price_low) * 0.1  # %10 kalınlık (burayı küçülterek daha da inceltebilirsin)
+            offset = (poc_price_high - poc_price_low) * 0.1
             y_coords = [poc_mid - offset, poc_mid - offset, poc_mid + offset, poc_mid + offset, poc_mid - offset]
             
             fig.add_trace(go.Scatter(
@@ -614,8 +620,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
 
     fig.update_xaxes(matches='x')
     
-    # Çoklu dönüş: figürü, anlık fiyatı ve hesaplanan önceki kapanışı döndürür
-    return fig, anlik_gercek_fiyat, prev_close
+    return fig, anlik_gercek_fiyat, prev_close, top3_hacim
 
 
 # ============================================================
@@ -651,7 +656,7 @@ show_supertrend = st.sidebar.checkbox("SuperTrend (AL/SAT)",      value=True)
 show_stochrsi   = st.sidebar.checkbox("Divergence Osilatörü",     value=True)
 show_fib        = st.sidebar.checkbox("Fibonacci Seviyeleri",     value=False)
 show_vrvp       = st.sidebar.checkbox("VRVP (Hacim Profili)",     value=True)
-show_poc        = st.sidebar.checkbox("Sarı Dikdörtgen (POC)",     value=True) # YENİ EKLENDİ
+show_poc        = st.sidebar.checkbox("Sarı Dikdörtgen (POC)",     value=True)
 show_sma        = st.sidebar.checkbox("SMA",                      value=True)
 show_ema        = st.sidebar.checkbox("EMA",                      value=False)
 show_bb         = st.sidebar.checkbox("Bollinger Bands",          value=True)
@@ -681,7 +686,7 @@ BB_STD = st.sidebar.slider("BB Standart Sapma", 1.0, 4.0, 2.0, 0.5) if show_bb e
 # ============================================================
 if st.sidebar.button("Analizi Başlat") or oto_yenile:
     with st.spinner('Veriler hesaplanıyor...'):
-        fig, anlik_fiyat, onceki_fiyat = create_complete_trading_chart(
+        fig, anlik_fiyat, onceki_fiyat, top3_hacim = create_complete_trading_chart(
             Hisse, Baslangic, Bitis, Secilen_Periyot,
             KAMA_HIZI, TREND_CARPAN, OSILATOR_PER, HACIM_DETAY, FIB_BAKIS,
             show_kama, show_supertrend, show_stochrsi, DIV_LOOKBACK, show_fib, show_vrvp,
@@ -689,7 +694,7 @@ if st.sidebar.button("Analizi Başlat") or oto_yenile:
             show_ichimoku, show_poc, GRAFIK_TIPI
         )
         if fig:
-            # --- EKLENEN CANLI METRİK KARTLARI ---
+            # --- CANLI METRİK KARTLARI ---
             if anlik_fiyat is not None and onceki_fiyat is not None:
                 m1, m2, m3 = st.columns(3)
                 fiyat_farki = anlik_fiyat - onceki_fiyat
@@ -698,8 +703,21 @@ if st.sidebar.button("Analizi Başlat") or oto_yenile:
                 m2.metric("Seçilen Periyot", Secilen_Periyot)
                 tr_saati = datetime.now(timezone(timedelta(hours=3)))
                 m3.metric("Son Güncelleme Zamanı", tr_saati.strftime("%H:%M:%S"))
-                st.markdown("---")
-            # ------------------------------------
+
+            # --- EN YÜKSEK HACİMLİ 3 SEVİYE KARTLARI ---
+            if top3_hacim:
+                st.markdown("**🧲 En Yüksek Hacimli Seviyeler (Destek/Direnç Mıknatısları)**")
+                h1, h2, h3 = st.columns(3)
+                for idx, (col, (fiyat, hacim)) in enumerate(zip([h1, h2, h3], top3_hacim)):
+                    fark_yuzde = ((fiyat - anlik_fiyat) / anlik_fiyat) * 100 if anlik_fiyat else 0
+                    etiket = "↑ Direnç" if fiyat > anlik_fiyat else "↓ Destek"
+                    col.metric(
+                        f"#{idx+1} {etiket}",
+                        f"{fiyat:.2f}",
+                        f"{fark_yuzde:+.2f}% uzakta"
+                    )
+
+            st.markdown("---")
 
             config = {'scrollZoom': True, 'displayModeBar': True}
             st.plotly_chart(fig, use_container_width=True, config=config)
@@ -764,14 +782,4 @@ else:
     * **Döviz / Emtia:** `EURUSD=X`, `GC=F` (Altın), `CL=F` (Petrol)
 
     #### 📊 Temel Sinyaller (Legend Alt Bölümü)
-    * Grafik oluşturulduktan sonra sağdaki legend'ın altında her skor grubu için **puan/max** ve **%yüzde** gösterilir.
-    * **✔** koşul sağlandı, **✘** koşul sağlanmadı anlamına gelir.
-    * Skorlar yatırım tavsiyesi değildir; sadece teknik koşulların özetini sunar.
-    ---
-    *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
-    """)
-
-
-
-
-
+    * Grafik oluşturulduktan sonra sağdaki legend'ın altında her skor grubu için **p
