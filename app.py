@@ -352,6 +352,114 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
 
     legend_signals = []
 
+    # KAMA
+    if show_kama and 'KAMA' in df.columns:
+        try:
+            close_v = float(last['Close'])
+            kama_v  = float(last['KAMA'])
+            if not pd.isna(kama_v):
+                if close_v > kama_v:
+                    durum, renk = f"Fiyat > KAMA ({_fmt(kama_v)}) — Yükseliş", "#00c853"
+                else:
+                    durum, renk = f"Fiyat < KAMA ({_fmt(kama_v)}) — Düşüş", "#ff1744"
+                legend_signals.append(('KAMA', durum, renk))
+        except Exception:
+            pass
+
+    # SuperTrend
+    if show_supertrend and 'ST_Dir' in df.columns:
+        try:
+            st_dir = float(last['ST_Dir'])
+            st_line = float(last['ST_Line'])
+            if st_dir == 1:
+                durum, renk = f"Yükseliş Trendi (Destek:{_fmt(st_line)})", "#00c853"
+            else:
+                durum, renk = f"Düşüş Trendi (Direnç:{_fmt(st_line)})", "#ff1744"
+            legend_signals.append(('SuperTrend', durum, renk))
+        except Exception:
+            pass
+
+    # Bollinger Bands
+    if show_bb and 'BB_Upper' in df.columns and 'BB_Lower' in df.columns:
+        try:
+            close_v  = float(last['Close'])
+            bb_up    = float(last['BB_Upper'])
+            bb_lo    = float(last['BB_Lower'])
+            bb_mid   = float(last['BB_Mid'])
+            if close_v > bb_up:
+                durum, renk = f"Üst Band Dışı — Aşırı Alım ({_fmt(bb_up)})", "#ff1744"
+            elif close_v < bb_lo:
+                durum, renk = f"Alt Band Dışı — Aşırı Satım ({_fmt(bb_lo)})", "#00c853"
+            elif close_v > bb_mid:
+                durum, renk = f"Orta Bandın Üstü ({_fmt(bb_mid)})", "#00c853"
+            else:
+                durum, renk = f"Orta Bandın Altı ({_fmt(bb_mid)})", "#ff1744"
+            legend_signals.append(('Bollinger Bands', durum, renk))
+        except Exception:
+            pass
+
+    # Ichimoku
+    if show_ichimoku and all(c in df.columns for c in ['Tenkan', 'Kijun', 'Senkou_A', 'Senkou_B']):
+        try:
+            close_v  = float(last['Close'])
+            tenkan   = float(last['Tenkan'])
+            kijun    = float(last['Kijun'])
+            senkou_a = float(last['Senkou_A'])
+            senkou_b = float(last['Senkou_B'])
+            cloud_top = max(senkou_a, senkou_b)
+            cloud_bot = min(senkou_a, senkou_b)
+            tk_bull = tenkan > kijun
+            if close_v > cloud_top and tk_bull:
+                durum, renk = "Bulut Üstü + Tenkan > Kijun — Güçlü AL", "#00c853"
+            elif close_v > cloud_top:
+                durum, renk = "Bulut Üstü — Yükseliş", "#00c853"
+            elif close_v < cloud_bot and not tk_bull:
+                durum, renk = "Bulut Altı + Tenkan < Kijun — Güçlü SAT", "#ff1744"
+            elif close_v < cloud_bot:
+                durum, renk = "Bulut Altı — Düşüş", "#ff1744"
+            else:
+                durum, renk = "Bulut İçi — Kararsız", "#aaaaaa"
+            legend_signals.append(('Ichimoku', durum, renk))
+        except Exception:
+            pass
+
+    # SMA
+    if show_sma and 'SMA_1' in df.columns:
+        try:
+            close_v = float(last['Close'])
+            sma1_v  = float(last['SMA_1'])
+            detay_parts = []
+            if close_v > sma1_v:
+                detay_parts.append(f"Fiyat > SMA1({_fmt(sma1_v)})")
+                renk = "#00c853"
+            else:
+                detay_parts.append(f"Fiyat < SMA1({_fmt(sma1_v)})")
+                renk = "#ff1744"
+            if 'SMA_2' in df.columns:
+                sma2_v = float(last['SMA_2'])
+                if sma1_v > sma2_v:
+                    detay_parts.append("Golden Cross")
+                    renk = "#00c853"
+                else:
+                    detay_parts.append("Death Cross")
+                    renk = "#ff1744"
+            legend_signals.append(('SMA', " | ".join(detay_parts), renk))
+        except Exception:
+            pass
+
+    # EMA
+    if show_ema and 'EMA_1' in df.columns:
+        try:
+            close_v = float(last['Close'])
+            ema1_v  = float(last['EMA_1'])
+            if close_v > ema1_v:
+                durum, renk = f"Fiyat > EMA1({_fmt(ema1_v)}) — Yükseliş", "#00c853"
+            else:
+                durum, renk = f"Fiyat < EMA1({_fmt(ema1_v)}) — Düşüş", "#ff1744"
+            legend_signals.append(('EMA', durum, renk))
+        except Exception:
+            pass
+
     # RSI
     if show_rsi and 'RSI' in df.columns:
         rsi_val = float(last['RSI']) if not pd.isna(last['RSI']) else None
