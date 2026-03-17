@@ -534,9 +534,11 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
             fig.add_trace(go.Bar(x=[vb], y=[(bins[i] + bins[i + 1]) / 2], orientation='h',
                                   marker_color='rgba(38,166,154,0.4)', showlegend=False), row=1, col=2)
         
-        # --- EN YÜKSEK HACİMLİ 3 SEVİYE ---
-        hacim_listesi.sort(key=lambda x: x[1], reverse=True)
-        top3_hacim = hacim_listesi[:3]
+        # --- EN YÜKSEK HACİMLİ DESTEK/DİRENÇ SEVİYELERİ ---
+        ref_fiyat = anlik_gercek_fiyat if anlik_gercek_fiyat else float(df['Close'].iloc[-1])
+        destekler = sorted([x for x in hacim_listesi if x[0] < ref_fiyat], key=lambda x: x[1], reverse=True)[:3]
+        direncler = sorted([x for x in hacim_listesi if x[0] >= ref_fiyat], key=lambda x: x[1], reverse=True)[:3]
+        top3_hacim = (destekler, direncler)
 
         # --- SARI DİKDÖRTGEN (POC) EKLEME ---
         if show_poc and max_total_vol > 0:
@@ -704,18 +706,29 @@ if st.sidebar.button("Analizi Başlat") or oto_yenile:
                 tr_saati = datetime.now(timezone(timedelta(hours=3)))
                 m3.metric("Son Güncelleme Zamanı", tr_saati.strftime("%H:%M:%S"))
 
-            # --- EN YÜKSEK HACİMLİ 3 SEVİYE KARTLARI ---
+            # --- EN YÜKSEK HACİMLİ DESTEK/DİRENÇ KARTLARI ---
             if top3_hacim:
-                st.markdown("**🧲 En Yüksek Hacimli Seviyeler (Destek/Direnç Mıknatısları)**")
-                h1, h2, h3 = st.columns(3)
-                for idx, (col, (fiyat, hacim)) in enumerate(zip([h1, h2, h3], top3_hacim)):
-                    fark_yuzde = ((fiyat - anlik_fiyat) / anlik_fiyat) * 100 if anlik_fiyat else 0
-                    etiket = "↑ Direnç" if fiyat > anlik_fiyat else "↓ Destek"
-                    col.metric(
-                        f"#{idx+1} {etiket}",
-                        f"{fiyat:.2f}",
-                        f"{fark_yuzde:+.2f}% uzakta"
-                    )
+                destekler, direncler = top3_hacim
+                if destekler:
+                    st.markdown("**🧲 En Yüksek Hacimli Destek Seviyeleri**")
+                    d_cols = st.columns(len(destekler))
+                    for idx, (col, (fiyat, hacim)) in enumerate(zip(d_cols, destekler)):
+                        fark_yuzde = ((fiyat - anlik_fiyat) / anlik_fiyat) * 100 if anlik_fiyat else 0
+                        col.metric(
+                            f"↓ Destek #{idx+1}",
+                            f"{fiyat:.2f}",
+                            f"{fark_yuzde:+.2f}% uzakta"
+                        )
+                if direncler:
+                    st.markdown("**🧲 En Yüksek Hacimli Direnç Seviyeleri**")
+                    r_cols = st.columns(len(direncler))
+                    for idx, (col, (fiyat, hacim)) in enumerate(zip(r_cols, direncler)):
+                        fark_yuzde = ((fiyat - anlik_fiyat) / anlik_fiyat) * 100 if anlik_fiyat else 0
+                        col.metric(
+                            f"↑ Direnç #{idx+1}",
+                            f"{fiyat:.2f}",
+                            f"{fark_yuzde:+.2f}% uzakta"
+                        )
 
             st.markdown("---")
 
