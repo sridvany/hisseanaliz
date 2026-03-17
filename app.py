@@ -782,4 +782,9 @@ else:
     * **Döviz / Emtia:** `EURUSD=X`, `GC=F` (Altın), `CL=F` (Petrol)
 
     #### 📊 Temel Sinyaller (Legend Alt Bölümü)
-    * Grafik oluşturulduktan sonra sağdaki legend'ın altında her skor grubu için **p
+    * Grafik oluşturulduktan sonra sağdaki legend'ın altında her skor grubu için **puan/max** ve **%yüzde** gösterilir.
+    * **✔** koşul sağlandı, **✘** koşul sağlanmadı anlamına gelir.
+    * Skorlar yatırım tavsiyesi değildir; sadece teknik koşulların özetini sunar.
+    ---
+    *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
+    """)
