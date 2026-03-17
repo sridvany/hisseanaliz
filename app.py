@@ -696,39 +696,53 @@ if st.sidebar.button("Analizi Başlat") or oto_yenile:
             show_ichimoku, show_poc, GRAFIK_TIPI
         )
         if fig:
+            # --- KOMPAKT METRİK STİLİ ---
+            st.markdown("""
+            <style>
+            div[data-testid="stMetric"] {
+                padding: 8px 12px;
+            }
+            div[data-testid="stMetric"] label {
+                font-size: 0.75rem !important;
+            }
+            div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
+                font-size: 1.1rem !important;
+            }
+            div[data-testid="stMetric"] div[data-testid="stMetricDelta"] {
+                font-size: 0.7rem !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+
             # --- CANLI METRİK KARTLARI ---
             if anlik_fiyat is not None and onceki_fiyat is not None:
-                m1, m2, m3 = st.columns(3)
                 fiyat_farki = anlik_fiyat - onceki_fiyat
                 yuzde_fark = (fiyat_farki / onceki_fiyat) * 100
-                m1.metric(f"Anlık Fiyat ({Hisse})", f"{anlik_fiyat:.2f}", f"{yuzde_fark:.2f}%")
-                m2.metric("Seçilen Periyot", Secilen_Periyot)
                 tr_saati = datetime.now(timezone(timedelta(hours=3)))
-                m3.metric("Son Güncelleme Zamanı", tr_saati.strftime("%H:%M:%S"))
 
-            # --- EN YÜKSEK HACİMLİ DESTEK/DİRENÇ KARTLARI ---
-            if top3_hacim:
-                destekler, direncler = top3_hacim
-                if destekler:
-                    st.markdown("**🧲 En Yüksek Hacimli Destek Seviyeleri**")
-                    d_cols = st.columns(len(destekler))
-                    for idx, (col, (fiyat, hacim)) in enumerate(zip(d_cols, destekler)):
-                        fark_yuzde = ((fiyat - anlik_fiyat) / anlik_fiyat) * 100 if anlik_fiyat else 0
-                        col.metric(
-                            f"↓ Destek #{idx+1}",
-                            f"{fiyat:.2f}",
-                            f"{fark_yuzde:+.2f}% uzakta"
-                        )
-                if direncler:
-                    st.markdown("**🧲 En Yüksek Hacimli Direnç Seviyeleri**")
-                    r_cols = st.columns(len(direncler))
-                    for idx, (col, (fiyat, hacim)) in enumerate(zip(r_cols, direncler)):
-                        fark_yuzde = ((fiyat - anlik_fiyat) / anlik_fiyat) * 100 if anlik_fiyat else 0
-                        col.metric(
-                            f"↑ Direnç #{idx+1}",
-                            f"{fiyat:.2f}",
-                            f"{fark_yuzde:+.2f}% uzakta"
-                        )
+                destekler, direncler = top3_hacim if top3_hacim else ([], [])
+
+                # Tek satır: Anlık Fiyat | Periyot | Saat | Destek 1-3 | Direnç 1-3
+                kolon_sayisi = 3 + len(destekler) + len(direncler)
+                tum_kolonlar = st.columns(kolon_sayisi)
+                ki = 0
+
+                tum_kolonlar[ki].metric(f"Anlık ({Hisse})", f"{anlik_fiyat:.2f}", f"{yuzde_fark:+.2f}%")
+                ki += 1
+                tum_kolonlar[ki].metric("Periyot", Secilen_Periyot)
+                ki += 1
+                tum_kolonlar[ki].metric("Güncelleme", tr_saati.strftime("%H:%M:%S"))
+                ki += 1
+
+                for idx, (fiyat, hacim) in enumerate(destekler):
+                    fark_yuzde = ((fiyat - anlik_fiyat) / anlik_fiyat) * 100 if anlik_fiyat else 0
+                    tum_kolonlar[ki].metric(f"↓ Destek {idx+1}", f"{fiyat:.2f}", f"{fark_yuzde:+.2f}%")
+                    ki += 1
+
+                for idx, (fiyat, hacim) in enumerate(direncler):
+                    fark_yuzde = ((fiyat - anlik_fiyat) / anlik_fiyat) * 100 if anlik_fiyat else 0
+                    tum_kolonlar[ki].metric(f"↑ Direnç {idx+1}", f"{fiyat:.2f}", f"{fark_yuzde:+.2f}%")
+                    ki += 1
 
             st.markdown("---")
 
