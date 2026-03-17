@@ -177,14 +177,8 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
 
     # --- EKLENEN ANLIK FİYAT ÇEKME BLOĞU (GÜNCELLENDİ) ---
     try:
-        canli_veri = yf.download(ticker, period="1d", interval="1m", progress=False)
-        if not canli_veri.empty:
-            if isinstance(canli_veri.columns, pd.MultiIndex):
-                canli_veri.columns = canli_veri.columns.get_level_values(0)
-            anlik_gercek_fiyat = float(canli_veri['Close'].iloc[-1])
-        else:
-            anlik_gercek_fiyat = float(df['Close'].iloc[-1])
-    except Exception as e:
+        anlik_gercek_fiyat = float(yf.Ticker(ticker).fast_info['lastPrice'])
+    except Exception:
         anlik_gercek_fiyat = float(df['Close'].iloc[-1])
     # ------------------------------------------------------
 
