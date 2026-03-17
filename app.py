@@ -990,4 +990,5 @@ if st.sidebar.button("Analizi Başlat") or oto_yenile:
             config = {'scrollZoom': True, 'displayModeBar': True}
             st.plotly_chart(fig, use_container_width=True, config=config)
 else:
-    st.info("Analiz yapmak için sol paneldeki 'Analizi Başlat' butonuna tıklayın.")
+    st.info("Analiz yapmak için sol paneldeki 'Analizi Başlat' ya da 'Otomatik Yenile' butonuna tıklayın.")
+   
