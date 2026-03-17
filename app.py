@@ -7,160 +7,98 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime, timedelta, timezone
 
-# --- EKLENEN OTOMATİK YENİLEME KÜTÜPHANESİ ---
 try:
     from streamlit_autorefresh import st_autorefresh
 except ImportError:
     st_autorefresh = None
-# ---------------------------------------------
 
 st.set_page_config(layout="wide", page_title="AI Teknik Analiz Terminali")
 
 
-def hesapla_skorlar(df, show_kama, show_supertrend, show_stochrsi, show_bb, show_ichimoku, show_sma, show_ema):
-    """Tüm AL/SAT skorlarını hesaplar ve dict olarak döner."""
-    skorlar = {}
+# ============================================================
+# YARDIMCI FONKSİYONLAR
+# ============================================================
 
-    # ── 1. Güçlü Momentum AL ──────────────────────────────────────
-    if show_stochrsi and all(c in df.columns for c in ['Bull_Div', 'Mom', 'Mom_Signal']):
-        last = df.iloc[-1]
-        k1 = bool(last['Bull_Div'])
-        k2 = float(last['Mom']) < -20
-        k3 = float(last['Mom']) > float(last['Mom_Signal'])
-        puan = int(k1) + int(k2) + int(k3)
-        skorlar['🟢 Güçlü Momentum AL'] = {
-            'puan': puan, 'max': 3,
-            'detay': [
-                ('Bullish Divergence', k1),
-                ('Mom < -20 (Aşırı Satım)', k2),
-                ('Mom > Sinyal Çizgisi', k3),
-            ]
-        }
-
-    # ── 2. Trend Konfirmasyon AL ──────────────────────────────────
-    cols_needed = []
-    if show_supertrend: cols_needed.append('ST_Dir')
-    if show_kama:       cols_needed.append('KAMA')
-    if show_bb:         cols_needed.append('BB_Mid')
-    if cols_needed and all(c in df.columns for c in cols_needed):
-        last = df.iloc[-1]
-        k1 = (float(last['ST_Dir']) == 1)       if 'ST_Dir' in df.columns else None
-        k2 = (float(last['Close']) > float(last['KAMA'])) if 'KAMA'   in df.columns else None
-        k3 = (float(last['Close']) > float(last['BB_Mid'])) if 'BB_Mid' in df.columns else None
-        aktif = [x for x in [k1, k2, k3] if x is not None]
-        puan  = sum(int(x) for x in aktif)
-        detay = []
-        if k1 is not None: detay.append(('SuperTrend Yukarı', k1))
-        if k2 is not None: detay.append(('Fiyat > KAMA', k2))
-        if k3 is not None: detay.append(('Fiyat > BB Orta', k3))
-        skorlar['🟢 Trend Konfirmasyon AL'] = {'puan': puan, 'max': len(detay), 'detay': detay}
-
-    # ── 3. Ichimoku Güçlü AL ─────────────────────────────────────
-    if show_ichimoku and all(c in df.columns for c in ['Senkou_A', 'Senkou_B', 'Tenkan', 'Kijun', 'Chikou']):
-        last = df.iloc[-1]
-        k1 = float(last['Close']) > float(last['Senkou_A']) and float(last['Close']) > float(last['Senkou_B'])
-        k2 = float(last['Tenkan']) > float(last['Kijun'])
-        # Chikou karşılaştırması: 26 bar önceki fiyatla
-        if len(df) > 26:
-            k3 = float(last['Chikou']) > float(df['Close'].iloc[-26])
-        else:
-            k3 = False
-        puan = int(k1) + int(k2) + int(k3)
-        skorlar['🟢 Ichimoku Güçlü AL'] = {
-            'puan': puan, 'max': 3,
-            'detay': [
-                ('Fiyat Bulut Üzerinde', k1),
-                ('Tenkan > Kijun', k2),
-                ('Chikou Güçlü', k3),
-            ]
-        }
-
-    # ── 4. Hareketli Ortalama AL ──────────────────────────────────
-    ma_cols = []
-    if show_sma and 'SMA_1' in df.columns and 'SMA_2' in df.columns: ma_cols.append('sma')
-    if show_ema and 'EMA_1' in df.columns: ma_cols.append('ema')
-    if ma_cols:
-        last = df.iloc[-1]
-        detay = []
-        if 'sma' in ma_cols:
-            k1 = float(last['SMA_1']) > float(last['SMA_2'])
-            k2 = float(last['Close']) > float(last['SMA_1'])
-            detay += [('Golden Cross (SMA1>SMA2)', k1), ('Fiyat > SMA1', k2)]
-        if 'ema' in ma_cols:
-            k3 = float(last['Close']) > float(last['EMA_1'])
-            detay.append(('Fiyat > EMA1', k3))
-        puan = sum(int(d[1]) for d in detay)
-        skorlar['🟢 Hareketli Ortalama AL'] = {'puan': puan, 'max': len(detay), 'detay': detay}
-
-    # ── 5. Güçlü Momentum SAT ────────────────────────────────────
-    if show_stochrsi and all(c in df.columns for c in ['Bear_Div', 'Mom', 'Mom_Signal']):
-        last = df.iloc[-1]
-        k1 = bool(last['Bear_Div'])
-        k2 = float(last['Mom']) > 20
-        k3 = float(last['Mom']) < float(last['Mom_Signal'])
-        puan = int(k1) + int(k2) + int(k3)
-        skorlar['🔴 Güçlü Momentum SAT'] = {
-            'puan': puan, 'max': 3,
-            'detay': [
-                ('Bearish Divergence', k1),
-                ('Mom > 20 (Aşırı Alım)', k2),
-                ('Mom < Sinyal Çizgisi', k3),
-            ]
-        }
-
-    # ── 6. BB Kırılım SAT ────────────────────────────────────────
-    sat_cols = []
-    if show_bb and 'BB_Upper' in df.columns: sat_cols.append('bb')
-    if show_supertrend and 'ST_Dir' in df.columns: sat_cols.append('st')
-    if show_stochrsi and 'Bear_Div' in df.columns: sat_cols.append('div')
-    if sat_cols:
-        last = df.iloc[-1]
-        detay = []
-        if 'bb' in sat_cols:
-            k1 = float(last['Close']) > float(last['BB_Upper'])
-            detay.append(('Fiyat > BB Üst', k1))
-        if 'st' in sat_cols:
-            k2 = float(last['ST_Dir']) == -1
-            detay.append(('SuperTrend Aşağı', k2))
-        if 'div' in sat_cols:
-            k3 = bool(last['Bear_Div'])
-            detay.append(('Bearish Divergence', k3))
-        puan = sum(int(d[1]) for d in detay)
-        skorlar['🔴 BB Kırılım SAT'] = {'puan': puan, 'max': len(detay), 'detay': detay}
-
-    return skorlar
+def calc_adx(high, low, close, period=14):
+    tr1 = high - low
+    tr2 = (high - close.shift(1)).abs()
+    tr3 = (low - close.shift(1)).abs()
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    up_move = high - high.shift(1)
+    down_move = low.shift(1) - low
+    plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0.0)
+    minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0.0)
+    plus_dm = pd.Series(plus_dm, index=high.index, dtype=float)
+    minus_dm = pd.Series(minus_dm, index=high.index, dtype=float)
+    alpha = 1.0 / period
+    atr = tr.ewm(alpha=alpha, min_periods=period, adjust=False).mean()
+    smooth_plus = plus_dm.ewm(alpha=alpha, min_periods=period, adjust=False).mean()
+    smooth_minus = minus_dm.ewm(alpha=alpha, min_periods=period, adjust=False).mean()
+    plus_di = 100 * (smooth_plus / atr.replace(0, np.nan))
+    minus_di = 100 * (smooth_minus / atr.replace(0, np.nan))
+    dx = 100 * ((plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, np.nan))
+    adx = dx.ewm(alpha=alpha, min_periods=period, adjust=False).mean()
+    return adx, plus_di, minus_di
 
 
-def skor_annotation_html(skorlar):
-    """Skorları Plotly annotation için HTML string'e çevirir."""
-    if not skorlar:
-        return ""
-    satirlar = ["<b>── Temel Sinyaller ──</b>"]
-    for baslik, veri in skorlar.items():
-        p, m = veri['puan'], veri['max']
-        yuzde = int(p / m * 100) if m > 0 else 0
-        bar = "█" * p + "░" * (m - p)
-        renk = "#00c853" if "AL" in baslik else "#ff1744"
-        satirlar.append(
-            f'<span style="color:{renk}"><b>{baslik}</b></span> {p}/{m} [{bar}] %{yuzde}'
-        )
-        for aciklama, durum in veri['detay']:
-            isaret = "✔" if durum else "✘"
-            renk2 = "#00c853" if durum else "#888888"
-            satirlar.append(f'  <span style="color:{renk2}">{isaret} {aciklama}</span>')
-    return "<br>".join(satirlar)
+def calc_nadaraya_watson(close, bandwidth=8, window=100):
+    n = len(close)
+    nw_line = np.full(n, np.nan)
+    start = max(0, n - window)
+    y = close.values[start:].astype(float)
+    m = len(y)
+    for i in range(m):
+        weights = np.array([
+            np.exp(-((i - j) ** 2) / (2 * bandwidth ** 2))
+            for j in range(m)
+        ])
+        nw_line[start + i] = np.sum(weights * y) / np.sum(weights)
+    nw_series = pd.Series(nw_line, index=close.index)
+    residuals = close.values[start:] - nw_line[start:]
+    mae = np.nanmean(np.abs(residuals))
+    nw_upper = nw_series + 2 * mae
+    nw_lower = nw_series - 2 * mae
+    return nw_series, nw_upper, nw_lower
+
+
+def calc_linear_regression_channel(close, period=50, std_mult=2.0):
+    n = len(close)
+    mid = np.full(n, np.nan)
+    upper = np.full(n, np.nan)
+    lower = np.full(n, np.nan)
+    for i in range(period - 1, n):
+        y = close.values[i - period + 1:i + 1].astype(float)
+        x = np.arange(period)
+        slope, intercept = np.polyfit(x, y, 1)
+        y_pred = slope * x + intercept
+        residuals = y - y_pred
+        std = np.std(residuals)
+        mid[i] = y_pred[-1]
+        upper[i] = y_pred[-1] + std_mult * std
+        lower[i] = y_pred[-1] - std_mult * std
+    return (
+        pd.Series(mid, index=close.index),
+        pd.Series(upper, index=close.index),
+        pd.Series(lower, index=close.index),
+    )
 
 
 def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_len, v_bins, f_look,
                                    show_kama, show_supertrend, show_stochrsi, div_lookback, show_fib, show_vrvp,
                                    show_sma, sma1_len, sma2_len, show_ema, ema1_len, ema2_len, show_bb, bb_len, bb_std,
-                                   show_ichimoku, show_poc, chart_type):
+                                   show_ichimoku, show_poc, chart_type,
+                                   show_rsi, rsi_period, rsi_lower, rsi_upper,
+                                   show_macd,
+                                   show_adx, adx_period, adx_threshold,
+                                   show_obv,
+                                   show_zscore, z_period, z_threshold,
+                                   show_lrc, lrc_period, lrc_std,
+                                   show_nw, nw_bandwidth, nw_window):
 
-    # 1. Veri Çekme (GÜNCELLENDİ)
+    # 1. Veri Çekme
     resample_map = {"2h": "2h", "4h": "4h", "8h": "8h"}
     raw_p = "1h" if per in resample_map else per
-    
-    # Bitiş tarihi bugün veya sonrasındaysa end parametresini yollamıyoruz (Canlı veri için)
+
     if end >= datetime.now().date():
         df = yf.download(ticker, start=start, interval=raw_p, auto_adjust=True)
     else:
@@ -175,12 +113,10 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
         df.columns = df.columns.get_level_values(0)
     df.columns = [c.strip().title() for c in df.columns]
 
-    # --- ANLIK FİYAT ÇEKME (OPTİMİZE EDİLDİ) ---
     try:
         anlik_gercek_fiyat = float(yf.Ticker(ticker).fast_info['lastPrice'])
     except Exception:
         anlik_gercek_fiyat = float(df['Close'].iloc[-1])
-    # ------------------------------------------------------
 
     # 2. Resampling
     if per in resample_map:
@@ -226,16 +162,13 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                 df['Mom']        = rsi_raw - 50
                 df['Mom_Signal'] = ta.ema(df['Mom'], length=9)
                 df['Mom_Hist']   = df['Mom'] - df['Mom_Signal']
-
                 lookback = div_lookback
                 df['Swing_Low']      = df['Close'][(df['Close'].shift(lookback) > df['Close']) & (df['Close'].shift(-lookback) > df['Close'])]
                 df['Swing_High']     = df['Close'][(df['Close'].shift(lookback) < df['Close']) & (df['Close'].shift(-lookback) < df['Close'])]
                 df['Mom_Swing_Low']  = df['Mom'][(df['Mom'].shift(lookback) > df['Mom'])   & (df['Mom'].shift(-lookback) > df['Mom'])]
                 df['Mom_Swing_High'] = df['Mom'][(df['Mom'].shift(lookback) < df['Mom'])   & (df['Mom'].shift(-lookback) < df['Mom'])]
-
                 df['Bull_Div'] = False
                 df['Bear_Div'] = False
-
                 sl_idx = df.dropna(subset=['Swing_Low']).index
                 if len(sl_idx) > 1:
                     sl_close = df['Close'].reindex(sl_idx)
@@ -243,7 +176,6 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                     bull_mask = (sl_close.values[1:] < sl_close.values[:-1]) & \
                                 (sl_mom.values[1:]   > sl_mom.values[:-1])
                     df.loc[sl_idx[1:][bull_mask], 'Bull_Div'] = True
-
                 sh_idx = df.dropna(subset=['Swing_High']).index
                 if len(sh_idx) > 1:
                     sh_close = df['Close'].reindex(sh_idx)
@@ -293,7 +225,6 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                     elif c.startswith('BBM'): df['BB_Mid']   = bbands[c]
                     elif c.startswith('BBL'): df['BB_Lower'] = bbands[c]
             else:
-                st.warning("Bollinger Bands hesaplanamadı.")
                 show_bb = False
         except Exception as e:
             st.warning(f"Bollinger Bands hatası: {e}")
@@ -305,7 +236,6 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
             ichi_result = ta.ichimoku(df['High'], df['Low'], df['Close'])
             ichi_df = ichi_result[0] if isinstance(ichi_result, tuple) else ichi_result
             if ichi_df is None or not hasattr(ichi_df, 'columns'):
-                st.warning("Ichimoku hesaplanamadı.")
                 show_ichimoku = False
             else:
                 cols = ichi_df.columns.tolist()
@@ -318,10 +248,9 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                     elif 'ICS' in cl: df['Chikou']   = ichi_df[c]
                 required = ['Tenkan', 'Kijun', 'Senkou_A', 'Senkou_B', 'Chikou']
                 if not all(c in df.columns for c in required):
-                    st.warning(f"Ichimoku sütunları eşleşmedi: {cols}")
                     show_ichimoku = False
         except Exception as e:
-            st.warning(f"Ichimoku hesaplama hatası: {e}")
+            st.warning(f"Ichimoku hatası: {e}")
             show_ichimoku = False
 
     # Fibonacci
@@ -338,10 +267,216 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
             '78.6%': hi - 0.786 * diff
         }
 
+    # ── YENİ İNDİKATÖRLER ──────────────────────────────────────
+
+    # RSI
+    if show_rsi:
+        try:
+            df['RSI'] = ta.rsi(df['Close'], length=rsi_period)
+        except Exception as e:
+            st.warning(f"RSI hatası: {e}")
+            show_rsi = False
+
+    # MACD
+    if show_macd:
+        try:
+            macd_result = ta.macd(df['Close'])
+            if macd_result is not None:
+                df['MACD']   = macd_result.iloc[:, 0]
+                df['MACD_S'] = macd_result.iloc[:, 1]
+                df['MACD_H'] = macd_result.iloc[:, 2]
+            else:
+                show_macd = False
+        except Exception as e:
+            st.warning(f"MACD hatası: {e}")
+            show_macd = False
+
+    # ADX
+    if show_adx:
+        try:
+            df['ADX'], df['PLUS_DI'], df['MINUS_DI'] = calc_adx(df['High'], df['Low'], df['Close'], period=adx_period)
+        except Exception as e:
+            st.warning(f"ADX hatası: {e}")
+            show_adx = False
+
+    # OBV
+    if show_obv:
+        try:
+            obv_sign = np.sign(df['Close'].diff()).fillna(0)
+            df['OBV'] = (df['Volume'] * obv_sign).cumsum()
+            df['OBV_SMA'] = df['OBV'].rolling(window=20).mean()
+        except Exception as e:
+            st.warning(f"OBV hatası: {e}")
+            show_obv = False
+
+    # Z-Score
+    if show_zscore:
+        try:
+            z_mean = df['Close'].rolling(z_period).mean()
+            z_std  = df['Close'].rolling(z_period).std().replace(0, np.nan)
+            df['Z_Score'] = (df['Close'] - z_mean) / z_std
+        except Exception as e:
+            st.warning(f"Z-Score hatası: {e}")
+            show_zscore = False
+
+    # Linear Regression Channel
+    if show_lrc:
+        try:
+            df['LRC_Mid'], df['LRC_Upper'], df['LRC_Lower'] = calc_linear_regression_channel(
+                df['Close'], period=lrc_period, std_mult=lrc_std
+            )
+        except Exception as e:
+            st.warning(f"LRC hatası: {e}")
+            show_lrc = False
+
+    # Nadaraya-Watson
+    if show_nw:
+        try:
+            df['NW_Line'], df['NW_Upper'], df['NW_Lower'] = calc_nadaraya_watson(
+                df['Close'], bandwidth=nw_bandwidth, window=nw_window
+            )
+        except Exception as e:
+            st.warning(f"Nadaraya-Watson hatası: {e}")
+            show_nw = False
+
     # ============================================================
-    # SKOR HESAPLAMA
+    # LEGEND İÇİN SINYAL DURUM HESABI (skor sistemi kaldırıldı)
     # ============================================================
-    skorlar = hesapla_skorlar(df, show_kama, show_supertrend, show_stochrsi, show_bb, show_ichimoku, show_sma, show_ema)
+    last = df.iloc[-1]
+
+    def _fmt(val, decimals=2):
+        try:
+            return f"{float(val):.{decimals}f}"
+        except Exception:
+            return "N/A"
+
+    legend_signals = []
+
+    # RSI
+    if show_rsi and 'RSI' in df.columns:
+        rsi_val = float(last['RSI']) if not pd.isna(last['RSI']) else None
+        if rsi_val is not None:
+            if rsi_val < rsi_lower:
+                durum, renk = f"Aşırı Satım ({_fmt(rsi_val, 1)})", "#00c853"
+            elif rsi_val > rsi_upper:
+                durum, renk = f"Aşırı Alım ({_fmt(rsi_val, 1)})", "#ff1744"
+            else:
+                durum, renk = f"Nötr ({_fmt(rsi_val, 1)})", "#aaaaaa"
+            legend_signals.append(('RSI', durum, renk))
+
+    # MACD
+    if show_macd and 'MACD' in df.columns and 'MACD_S' in df.columns:
+        try:
+            macd_v = float(last['MACD'])
+            macd_s = float(last['MACD_S'])
+            if macd_v > macd_s:
+                durum, renk = f"Yükseliş ({_fmt(macd_v)} > {_fmt(macd_s)})", "#00c853"
+            else:
+                durum, renk = f"Düşüş ({_fmt(macd_v)} < {_fmt(macd_s)})", "#ff1744"
+            legend_signals.append(('MACD', durum, renk))
+        except Exception:
+            pass
+
+    # ADX
+    if show_adx and 'ADX' in df.columns:
+        try:
+            adx_v = float(last['ADX'])
+            pdi   = float(last['PLUS_DI'])
+            mdi   = float(last['MINUS_DI'])
+            if adx_v > adx_threshold:
+                if pdi > mdi:
+                    durum, renk = f"Güçlü Yükseliş Trendi (ADX:{_fmt(adx_v, 1)})", "#00c853"
+                else:
+                    durum, renk = f"Güçlü Düşüş Trendi (ADX:{_fmt(adx_v, 1)})", "#ff1744"
+            else:
+                durum, renk = f"Zayıf Trend (ADX:{_fmt(adx_v, 1)})", "#aaaaaa"
+            legend_signals.append(('ADX', durum, renk))
+        except Exception:
+            pass
+
+    # OBV
+    if show_obv and 'OBV' in df.columns and 'OBV_SMA' in df.columns:
+        try:
+            obv_v   = float(last['OBV'])
+            obv_sma = float(last['OBV_SMA'])
+            if obv_v > obv_sma:
+                durum, renk = "Hacim Trendi Yükseliş", "#00c853"
+            else:
+                durum, renk = "Hacim Trendi Düşüş", "#ff1744"
+            legend_signals.append(('OBV', durum, renk))
+        except Exception:
+            pass
+
+    # Stoch RSI / Divergence
+    if show_stochrsi and 'Mom' in df.columns:
+        try:
+            mom_v = float(last['Mom'])
+            mom_s = float(last['Mom_Signal'])
+            bull  = bool(last['Bull_Div'])
+            bear  = bool(last['Bear_Div'])
+            if bull:
+                durum, renk = f"Yükseliş Uyumsuzluğu (Mom:{_fmt(mom_v, 1)})", "#00c853"
+            elif bear:
+                durum, renk = f"Düşüş Uyumsuzluğu (Mom:{_fmt(mom_v, 1)})", "#ff1744"
+            elif mom_v < -20:
+                durum, renk = f"Aşırı Satım (Mom:{_fmt(mom_v, 1)})", "#00c853"
+            elif mom_v > 20:
+                durum, renk = f"Aşırı Alım (Mom:{_fmt(mom_v, 1)})", "#ff1744"
+            elif mom_v > mom_s:
+                durum, renk = f"Momentum Yükseliş (Mom:{_fmt(mom_v, 1)})", "#00c853"
+            else:
+                durum, renk = f"Momentum Düşüş (Mom:{_fmt(mom_v, 1)})", "#aaaaaa"
+            legend_signals.append(('Stoch RSI / Div', durum, renk))
+        except Exception:
+            pass
+
+    # Z-Score
+    if show_zscore and 'Z_Score' in df.columns:
+        try:
+            z_val = float(last['Z_Score'])
+            if z_val < -z_threshold:
+                durum, renk = f"Aşırı Satım (Z:{_fmt(z_val)})", "#00c853"
+            elif z_val > z_threshold:
+                durum, renk = f"Aşırı Alım (Z:{_fmt(z_val)})", "#ff1744"
+            else:
+                durum, renk = f"Nötr (Z:{_fmt(z_val)})", "#aaaaaa"
+            legend_signals.append(('Z-Score', durum, renk))
+        except Exception:
+            pass
+
+    # LRC
+    if show_lrc and 'LRC_Mid' in df.columns:
+        try:
+            close_v   = float(last['Close'])
+            lrc_up    = float(last['LRC_Upper'])
+            lrc_lo    = float(last['LRC_Lower'])
+            lrc_mid   = float(last['LRC_Mid'])
+            if close_v > lrc_up:
+                durum, renk = f"Üst Kanal Dışı (Aşırı Alım)", "#ff1744"
+            elif close_v < lrc_lo:
+                durum, renk = f"Alt Kanal Dışı (Aşırı Satım)", "#00c853"
+            else:
+                durum, renk = f"Kanal İçi (Orta:{_fmt(lrc_mid)})", "#aaaaaa"
+            legend_signals.append(('LR Channel', durum, renk))
+        except Exception:
+            pass
+
+    # Nadaraya-Watson
+    if show_nw and 'NW_Line' in df.columns:
+        try:
+            close_v  = float(last['Close'])
+            nw_up    = float(last['NW_Upper'])
+            nw_lo    = float(last['NW_Lower'])
+            nw_mid   = float(last['NW_Line'])
+            if close_v > nw_up:
+                durum, renk = f"Üst Zarf Dışı (Aşırı Alım)", "#ff1744"
+            elif close_v < nw_lo:
+                durum, renk = f"Alt Zarf Dışı (Aşırı Satım)", "#00c853"
+            else:
+                durum, renk = f"Zarf İçi (NW:{_fmt(nw_mid)})", "#aaaaaa"
+            legend_signals.append(('Nadaraya-Watson', durum, renk))
+        except Exception:
+            pass
 
     # ============================================================
     # 4. Görselleştirme
@@ -353,47 +488,29 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                         column_widths=[0.85, 0.15], row_heights=row_heights,
                         vertical_spacing=0.05, horizontal_spacing=0.01)
 
-    # ============================================================
-    # SINYAL SKORLARI — İLK EKLENEN = LEGEND'DA EN ALTTA
-    # ============================================================
-    if not df.empty:
-        # 1) Skor detaylarını ters sırada ekle (en alttaki skor önce)
-        for baslik, veri in list(skorlar.items()):
-            p, m = veri['puan'], veri['max']
-            yuzde = int(p / m * 100) if m > 0 else 0
-            renk = "#00c853" if "AL" in baslik else "#ff1744"
-            # Önce detayları ters sırada ekle
-            for aciklama, durum in reversed(veri['detay']):
-                isaret = "✔" if durum else "✘"
-                renk2 = "#00c853" if durum else "#aaaaaa"
-                fig.add_trace(go.Scatter(
-                    x=[df.index[0]], y=[df['Close'].iloc[0]],
-                    mode='lines', line=dict(color='rgba(0,0,0,0)', width=0),
-                    name=f'<span style="color:{renk2}; font-size:10px;">  {isaret} {aciklama}</span>',
-                    showlegend=True, hoverinfo='skip'
-                ), row=1, col=1)
-            # Sonra skor başlığı
-            skor_label = f'<span style="color:{renk}; font-size:11px;"><b>{baslik}</b>  {p}/{m} [{"█"*p}{"░"*(m-p)}] %{yuzde}</span>'
-            fig.add_trace(go.Scatter(
-                x=[df.index[0]], y=[df['Close'].iloc[0]],
-                mode='lines', line=dict(color='rgba(0,0,0,0)', width=0),
-                name=skor_label, showlegend=True, hoverinfo='skip'
-            ), row=1, col=1)
-
-        # 2) "── Çoklu Sinyal Skorları ──" başlığı
+    # ── LEGEND: İNDİKATÖR DURUMLARI ──────────────────────────────
+    if legend_signals:
+        # Başlık
         fig.add_trace(go.Scatter(
             x=[df.index[0]], y=[df['Close'].iloc[0]],
             mode='lines', line=dict(color='rgba(0,0,0,0)', width=0),
-            name='<span style="font-size:13px; color:#333; font-weight:bold;">── Temel Sinyaller ──</span>',
+            name='<span style="font-size:13px; font-weight:bold; color:#333;">── İndikatör Durumları ──</span>',
             showlegend=True, hoverinfo='skip'
         ), row=1, col=1)
 
-        # 3) En son eklenen → legend'da en üstte → indikatörlerin hemen altında
+        for isim, durum, renk in legend_signals:
+            fig.add_trace(go.Scatter(
+                x=[df.index[0]], y=[df['Close'].iloc[0]],
+                mode='lines', line=dict(color='rgba(0,0,0,0)', width=0),
+                name=f'<span style="color:{renk}; font-size:11px;"><b>{isim}:</b> {durum}</span>',
+                showlegend=True, hoverinfo='skip'
+            ), row=1, col=1)
+
+        # Ayırıcı boşluk
         fig.add_trace(go.Scatter(
             x=[df.index[0]], y=[df['Close'].iloc[0]],
             mode='lines', line=dict(color='rgba(0,0,0,0)', width=0),
-            name='<span style="font-size:12px; color:red; font-weight:bold;"> </span>',
-            showlegend=True, hoverinfo='skip'
+            name=' ', showlegend=True, hoverinfo='skip'
         ), row=1, col=1)
 
     # Grafik tipi
@@ -407,7 +524,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
     # KAMA
     if show_kama:
         fig.add_trace(go.Scatter(x=df.index, y=df['KAMA'],
-                                  line=dict(color='#2962ff', width=2), name='KAMA (Direnç)'), row=1, col=1)
+                                  line=dict(color='#2962ff', width=2), name='KAMA'), row=1, col=1)
 
     # SuperTrend
     if show_supertrend:
@@ -480,6 +597,26 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
         fig.add_trace(go.Scatter(x=df.index, y=df['Chikou'],
                                   line=dict(color='#9c27b0', width=1, dash='dot'), name='Chikou', visible='legendonly'), row=1, col=1)
 
+    # Linear Regression Channel
+    if show_lrc:
+        fig.add_trace(go.Scatter(x=df.index, y=df['LRC_Mid'],
+                                  line=dict(color='white', width=1, dash='dash'), name='LRC Orta', visible='legendonly'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['LRC_Upper'],
+                                  line=dict(color='rgba(200,200,200,0.5)', width=1, dash='dot'), name='LRC Üst', visible='legendonly'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['LRC_Lower'],
+                                  line=dict(color='rgba(200,200,200,0.5)', width=1, dash='dot'),
+                                  fill='tonexty', fillcolor='rgba(150,150,150,0.05)', name='LRC Alt', visible='legendonly'), row=1, col=1)
+
+    # Nadaraya-Watson
+    if show_nw:
+        fig.add_trace(go.Scatter(x=df.index, y=df['NW_Line'],
+                                  line=dict(color='gold', width=1.5), name='NW Orta', visible='legendonly'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['NW_Upper'],
+                                  line=dict(color='rgba(255,215,0,0.5)', width=1, dash='dot'), name='NW Üst', visible='legendonly'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['NW_Lower'],
+                                  line=dict(color='rgba(255,215,0,0.5)', width=1, dash='dot'),
+                                  fill='tonexty', fillcolor='rgba(255,215,0,0.04)', name='NW Alt', visible='legendonly'), row=1, col=1)
+
     # Fibonacci
     if show_fib:
         for l, p in fib.items():
@@ -493,7 +630,6 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
     # Son fiyat çizgisi
     prev_close = None
     if not df.empty:
-        # --- ANLIK FİYAT ÇİZGİSİ ---
         gosterilecek_fiyat = anlik_gercek_fiyat if anlik_gercek_fiyat is not None else float(df['Close'].iloc[-1])
         prev_close = float(df['Close'].iloc[-2]) if len(df) > 1 else float(df['Open'].iloc[-1])
         price_color = "#00e676" if gosterilecek_fiyat >= prev_close else "#ff1744"
@@ -504,12 +640,11 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                       annotation_font_color="black",
                       row=1, col=1)
 
-    # --- VRVP & POC & TOP3 HACİM SEVİYELERİ ---
+    # VRVP & POC
     top3_hacim = []
     if show_vrvp:
         bins = pd.cut(df['Close'], bins=v_bins, retbins=True)[1]
         df['V_T'] = df.apply(lambda r: 'B' if r['Close'] >= r['Open'] else 'S', axis=1)
-        
         max_total_vol = -1
         poc_price_low = 0
         poc_price_high = 0
@@ -522,31 +657,25 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
             total_vol = vb + vs
             orta_fiyat = (bins[i] + bins[i + 1]) / 2
             hacim_listesi.append((orta_fiyat, total_vol))
-            
-            # POC'u Bul (En uzun hacim barı)
             if total_vol > max_total_vol:
                 max_total_vol = total_vol
                 poc_price_low = bins[i]
-                poc_price_high = bins[i+1]
-
+                poc_price_high = bins[i + 1]
             fig.add_trace(go.Bar(x=[vs], y=[(bins[i] + bins[i + 1]) / 2], orientation='h',
                                   marker_color='rgba(239,83,80,0.4)', showlegend=False), row=1, col=2)
             fig.add_trace(go.Bar(x=[vb], y=[(bins[i] + bins[i + 1]) / 2], orientation='h',
                                   marker_color='rgba(38,166,154,0.4)', showlegend=False), row=1, col=2)
-        
-        # --- EN YÜKSEK HACİMLİ DESTEK/DİRENÇ SEVİYELERİ ---
+
         ref_fiyat = anlik_gercek_fiyat if anlik_gercek_fiyat else float(df['Close'].iloc[-1])
         destekler = sorted([x for x in hacim_listesi if x[0] < ref_fiyat], key=lambda x: x[1], reverse=True)[:3]
         direncler = sorted([x for x in hacim_listesi if x[0] >= ref_fiyat], key=lambda x: x[1], reverse=True)[:3]
         top3_hacim = (destekler, direncler)
 
-        # --- SARI DİKDÖRTGEN (POC) EKLEME ---
         if show_poc and max_total_vol > 0:
             x_coords = [df.index[0], df.index[-1], df.index[-1], df.index[0], df.index[0]]
             poc_mid = (poc_price_low + poc_price_high) / 2
             offset = (poc_price_high - poc_price_low) * 0.1
             y_coords = [poc_mid - offset, poc_mid - offset, poc_mid + offset, poc_mid + offset, poc_mid - offset]
-            
             fig.add_trace(go.Scatter(
                 x=x_coords, y=y_coords,
                 fill="toself",
@@ -560,9 +689,9 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
     # Osilatör paneli
     if show_stochrsi:
         fig.add_trace(go.Scatter(x=df.index, y=df['Mom'],
-                                  line=dict(color='#00c853', width=1.5), name='Momentum', visible=True), row=2, col=1)
+                                  line=dict(color='#00c853', width=1.5), name='Momentum'), row=2, col=1)
         fig.add_trace(go.Scatter(x=df.index, y=df['Mom_Signal'],
-                                  line=dict(color='#ff1744', width=1.5), name='Sinyal', visible=True), row=2, col=1)
+                                  line=dict(color='#ff1744', width=1.5), name='Sinyal'), row=2, col=1)
         fig.add_hline(y=0,   line_dash="solid", line_color="rgba(128,128,128,0.5)", row=2, col=1)
         fig.add_hline(y=30,  line_dash="dash",  line_color="rgba(255,23,68,0.5)",  annotation_text="30", row=2, col=1)
         fig.add_hline(y=20,  line_dash="dot",   line_color="rgba(255,23,68,0.3)",  row=2, col=1)
@@ -580,9 +709,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
                                       mode='markers', marker=dict(symbol='triangle-down', size=10, color='#ff1744'),
                                       name='Bear Div', showlegend=False), row=2, col=1)
 
-    # ============================================================
-    # Layout
-    # ============================================================
+    # ── Layout ──────────────────────────────────────────────────
     visible_candles = 100
     if not df.empty and len(df) > visible_candles:
         view_start = df.index[-visible_candles]
@@ -621,7 +748,7 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
     )
 
     fig.update_xaxes(matches='x')
-    
+
     return fig, anlik_gercek_fiyat, prev_close, top3_hacim
 
 
@@ -630,58 +757,75 @@ def create_complete_trading_chart(ticker, start, end, per, k_len, s_mult, srsi_l
 # ============================================================
 st.sidebar.header("🛠️ Analiz Ayarları")
 
-Hisse          = st.sidebar.text_input("Varlık Sembolü", value="PAXG-USD")
-col1, col2     = st.sidebar.columns(2)
-Baslangic      = col1.date_input("Başlangıç", value=datetime.now() - timedelta(days=120))
-Bitis          = col2.date_input("Bitiş",     value=datetime.now())
+Hisse           = st.sidebar.text_input("Varlık Sembolü", value="PAXG-USD")
+col1, col2      = st.sidebar.columns(2)
+Baslangic       = col1.date_input("Başlangıç", value=datetime.now() - timedelta(days=120))
+Bitis           = col2.date_input("Bitiş",     value=datetime.now())
 Secilen_Periyot = st.sidebar.selectbox("Periyot", ["15m", "30m", "1h", "2h", "4h", "8h", "1d", "1wk"], index=5)
 
 st.sidebar.markdown("---")
 
-# EKLENEN OTOMATİK YENİLEME AYARI
 oto_yenile = st.sidebar.checkbox("Otomatik Yenile (1 Dk)", value=False)
 if oto_yenile:
     if st_autorefresh is not None:
         st_autorefresh(interval=60000, key="data_refresh")
     else:
-        st.sidebar.warning("Otomatik yenileme için terminalden `pip install streamlit-autorefresh` komutunu çalıştırın.")
+        st.sidebar.warning("Otomatik yenileme için `pip install streamlit-autorefresh` çalıştırın.")
 
 st.sidebar.markdown("---")
 
 GRAFIK_TIPI = st.sidebar.radio("Grafik Görünümü", ["Çizgi (Line)", "Mum (Candlestick)"], horizontal=True)
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("📊 Göstergeler")
-
+st.sidebar.subheader("📊 Mevcut Göstergeler")
 show_kama       = st.sidebar.checkbox("KAMA",                     value=True)
 show_supertrend = st.sidebar.checkbox("SuperTrend (AL/SAT)",      value=True)
 show_stochrsi   = st.sidebar.checkbox("Divergence Osilatörü",     value=True)
 show_fib        = st.sidebar.checkbox("Fibonacci Seviyeleri",     value=False)
 show_vrvp       = st.sidebar.checkbox("VRVP (Hacim Profili)",     value=True)
-show_poc        = st.sidebar.checkbox("Sarı Dikdörtgen (POC)",     value=True)
+show_poc        = st.sidebar.checkbox("Sarı Dikdörtgen (POC)",    value=True)
 show_sma        = st.sidebar.checkbox("SMA",                      value=True)
 show_ema        = st.sidebar.checkbox("EMA",                      value=False)
 show_bb         = st.sidebar.checkbox("Bollinger Bands",          value=True)
 show_ichimoku   = st.sidebar.checkbox("Ichimoku Cloud",           value=True)
 
 st.sidebar.markdown("---")
+st.sidebar.subheader("📊 Ek Göstergeler")
+show_rsi    = st.sidebar.checkbox("RSI",                      value=True)
+show_macd   = st.sidebar.checkbox("MACD",                     value=True)
+show_adx    = st.sidebar.checkbox("ADX",                      value=True)
+show_obv    = st.sidebar.checkbox("OBV",                      value=True)
+show_zscore = st.sidebar.checkbox("Z-Score (Mean Reversion)", value=True)
+show_lrc    = st.sidebar.checkbox("Linear Regression Channel",value=True)
+show_nw     = st.sidebar.checkbox("Nadaraya-Watson",          value=True)
+
+st.sidebar.markdown("---")
 st.sidebar.subheader("🎯 Hassasiyet Ayarları")
 
-KAMA_HIZI    = st.sidebar.slider("KAMA Hızı",              5,  50,  10)          if show_kama        else 10
-TREND_CARPAN = st.sidebar.slider("Trend Çarpanı",           1.0, 5.0, 2.0, 0.5) if show_supertrend else 2.0
-OSILATOR_PER = st.sidebar.slider("Divergence RSI Periyodu", 7,  30,  14)          if show_stochrsi   else 14
-DIV_LOOKBACK = st.sidebar.slider("Divergence Lookback",     2,  20,  5)           if show_stochrsi   else 5
-HACIM_DETAY  = st.sidebar.slider("Hacim Detayı",            20, 100, 40)          if show_vrvp       else 40
-FIB_BAKIS    = st.sidebar.number_input("Fib Geriye Bakış (Mum)", value=100)       if show_fib        else 100
+KAMA_HIZI    = st.sidebar.slider("KAMA Hızı",              5,  50,  10)           if show_kama        else 10
+TREND_CARPAN = st.sidebar.slider("Trend Çarpanı",          1.0, 5.0, 2.0, 0.5)   if show_supertrend  else 2.0
+OSILATOR_PER = st.sidebar.slider("Divergence RSI Periyodu",7,  30,  14)           if show_stochrsi    else 14
+DIV_LOOKBACK = st.sidebar.slider("Divergence Lookback",    2,  20,  5)            if show_stochrsi    else 5
+HACIM_DETAY  = st.sidebar.slider("Hacim Detayı",           20, 100, 40)           if show_vrvp        else 40
+FIB_BAKIS    = st.sidebar.number_input("Fib Geriye Bakış", value=100)             if show_fib         else 100
+SMA_1_LEN    = st.sidebar.slider("SMA 1 Periyodu",         5,  200, 50)           if show_sma         else 50
+SMA_2_LEN    = st.sidebar.slider("SMA 2 Periyodu",         5,  400, 200)          if show_sma         else 200
+EMA_1_LEN    = st.sidebar.slider("EMA 1 Periyodu",         5,  200, 20)           if show_ema         else 20
+EMA_2_LEN    = st.sidebar.slider("EMA 2 Periyodu",         5,  400, 50)           if show_ema         else 50
+BB_LEN       = st.sidebar.slider("BB Periyodu",            5,  50,  20)           if show_bb          else 20
+BB_STD       = st.sidebar.slider("BB Standart Sapma",      1.0, 4.0, 2.0, 0.5)   if show_bb          else 2.0
 
-SMA_1_LEN = st.sidebar.slider("SMA 1 Periyodu", 5, 200, 50)  if show_sma else 50
-SMA_2_LEN = st.sidebar.slider("SMA 2 Periyodu", 5, 400, 200) if show_sma else 200
-
-EMA_1_LEN = st.sidebar.slider("EMA 1 Periyodu", 5, 200, 20)  if show_ema else 20
-EMA_2_LEN = st.sidebar.slider("EMA 2 Periyodu", 5, 400, 50)  if show_ema else 50
-
-BB_LEN = st.sidebar.slider("BB Periyodu",        5,  50, 20)        if show_bb else 20
-BB_STD = st.sidebar.slider("BB Standart Sapma", 1.0, 4.0, 2.0, 0.5) if show_bb else 2.0
+RSI_PERIOD   = st.sidebar.slider("RSI Periyodu",           5,  30,  14)           if show_rsi         else 14
+RSI_LOWER    = st.sidebar.slider("RSI Aşırı Satım Eşiği",  10, 40,  30)           if show_rsi         else 30
+RSI_UPPER    = st.sidebar.slider("RSI Aşırı Alım Eşiği",   60, 90,  70)           if show_rsi         else 70
+ADX_PERIOD   = st.sidebar.slider("ADX Periyodu",           7,  30,  14)           if show_adx         else 14
+ADX_THRESH   = st.sidebar.slider("ADX Trend Eşiği",        15, 40,  25)           if show_adx         else 25
+Z_PERIOD     = st.sidebar.slider("Z-Score Periyodu",       10, 60,  30)           if show_zscore      else 30
+Z_THRESH     = st.sidebar.slider("Z-Score Eşiği (±)",      1.0, 3.0, 2.0, 0.1)   if show_zscore      else 2.0
+LRC_PERIOD   = st.sidebar.slider("LRC Periyodu",           20, 100, 50)           if show_lrc         else 50
+LRC_STD      = st.sidebar.slider("LRC Std Çarpanı",        1.0, 3.0, 2.0, 0.5)   if show_lrc         else 2.0
+NW_BW        = st.sidebar.slider("NW Bant Genişliği",      3,  20,  8)            if show_nw          else 8
+NW_WINDOW    = st.sidebar.slider("NW Pencere (bar)",        50, 300, 100)          if show_nw          else 100
 
 # ============================================================
 # ANALİZİ BAŞLAT
@@ -693,125 +837,49 @@ if st.sidebar.button("Analizi Başlat") or oto_yenile:
             KAMA_HIZI, TREND_CARPAN, OSILATOR_PER, HACIM_DETAY, FIB_BAKIS,
             show_kama, show_supertrend, show_stochrsi, DIV_LOOKBACK, show_fib, show_vrvp,
             show_sma, SMA_1_LEN, SMA_2_LEN, show_ema, EMA_1_LEN, EMA_2_LEN, show_bb, BB_LEN, BB_STD,
-            show_ichimoku, show_poc, GRAFIK_TIPI
+            show_ichimoku, show_poc, GRAFIK_TIPI,
+            show_rsi, RSI_PERIOD, RSI_LOWER, RSI_UPPER,
+            show_macd,
+            show_adx, ADX_PERIOD, ADX_THRESH,
+            show_obv,
+            show_zscore, Z_PERIOD, Z_THRESH,
+            show_lrc, LRC_PERIOD, LRC_STD,
+            show_nw, NW_BW, NW_WINDOW
         )
         if fig:
-            # --- KOMPAKT METRİK STİLİ ---
             st.markdown("""
             <style>
-            div[data-testid="stMetric"] {
-                padding: 8px 12px;
-            }
-            div[data-testid="stMetric"] label {
-                font-size: 0.75rem !important;
-            }
-            div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
-                font-size: 1.1rem !important;
-            }
-            div[data-testid="stMetric"] div[data-testid="stMetricDelta"] {
-                font-size: 0.7rem !important;
-            }
+            div[data-testid="stMetric"] { padding: 8px 12px; }
+            div[data-testid="stMetric"] label { font-size: 0.75rem !important; }
+            div[data-testid="stMetric"] div[data-testid="stMetricValue"] { font-size: 1.1rem !important; }
+            div[data-testid="stMetric"] div[data-testid="stMetricDelta"] { font-size: 0.7rem !important; }
             </style>
             """, unsafe_allow_html=True)
 
-            # --- CANLI METRİK KARTLARI ---
             if anlik_fiyat is not None and onceki_fiyat is not None:
                 fiyat_farki = anlik_fiyat - onceki_fiyat
-                yuzde_fark = (fiyat_farki / onceki_fiyat) * 100
-                tr_saati = datetime.now(timezone(timedelta(hours=3)))
+                yuzde_fark  = (fiyat_farki / onceki_fiyat) * 100
+                tr_saati    = datetime.now(timezone(timedelta(hours=3)))
 
                 destekler, direncler = top3_hacim if top3_hacim else ([], [])
-
-                # Tek satır: Anlık Fiyat | Periyot | Saat | Destek 1-3 | Direnç 1-3
                 kolon_sayisi = 3 + len(destekler) + len(direncler)
                 tum_kolonlar = st.columns(kolon_sayisi)
                 ki = 0
 
-                tum_kolonlar[ki].metric(f"Anlık ({Hisse})", f"{anlik_fiyat:.2f}", f"{yuzde_fark:+.2f}%")
-                ki += 1
-                tum_kolonlar[ki].metric("Periyot", Secilen_Periyot)
-                ki += 1
-                tum_kolonlar[ki].metric("Güncelleme", tr_saati.strftime("%H:%M:%S"))
-                ki += 1
+                tum_kolonlar[ki].metric(f"Anlık ({Hisse})", f"{anlik_fiyat:.2f}", f"{yuzde_fark:+.2f}%"); ki += 1
+                tum_kolonlar[ki].metric("Periyot", Secilen_Periyot); ki += 1
+                tum_kolonlar[ki].metric("Güncelleme", tr_saati.strftime("%H:%M:%S")); ki += 1
 
                 for idx, (fiyat, hacim) in enumerate(destekler):
-                    fark_yuzde = ((fiyat - anlik_fiyat) / anlik_fiyat) * 100 if anlik_fiyat else 0
-                    tum_kolonlar[ki].metric(f"↓ Destek {idx+1}", f"{fiyat:.2f}", f"{fark_yuzde:+.2f}%")
-                    ki += 1
+                    fark_yuzde = ((fiyat - anlik_fiyat) / anlik_fiyat) * 100
+                    tum_kolonlar[ki].metric(f"↓ Destek {idx+1}", f"{fiyat:.2f}", f"{fark_yuzde:+.2f}%"); ki += 1
 
                 for idx, (fiyat, hacim) in enumerate(direncler):
-                    fark_yuzde = ((fiyat - anlik_fiyat) / anlik_fiyat) * 100 if anlik_fiyat else 0
-                    tum_kolonlar[ki].metric(f"↑ Direnç {idx+1}", f"{fiyat:.2f}", f"{fark_yuzde:+.2f}%")
-                    ki += 1
+                    fark_yuzde = ((fiyat - anlik_fiyat) / anlik_fiyat) * 100
+                    tum_kolonlar[ki].metric(f"↑ Direnç {idx+1}", f"{fiyat:.2f}", f"{fark_yuzde:+.2f}%"); ki += 1
 
             st.markdown("---")
-
             config = {'scrollZoom': True, 'displayModeBar': True}
             st.plotly_chart(fig, use_container_width=True, config=config)
 else:
-    st.info("Analiz yapmak için sol paneldeki 'Analizi Başlat' butonuna tıklayın. Varlık sembolünü bilmiyorsanız Gemini'ye 'yfinance ...... tickerı nedir' yazın. Uygulama yatırım tavsiyesi içermez. Ücretsizdir.")
-
-    st.markdown("""
-    ---
-    ### 📖 Teknik Analiz Klavuzu
-
-    #### 🚀 Sinyaller ve Oklar
-    * **Büyük Üçgenler (AL/SAT):** SuperTrend indikatörünün ana trend onay sinyalleridir.
-    * **🟢 Yeşil ▲D (Yükseliş Uyumsuzluğu):** Fiyat daha düşük dip yaparken osilatör daha yüksek dip yapar. Bu, satış baskısının zayıfladığını ve potansiyel bir yukarı dönüşü işaret eder.
-    * **🔴 Kırmızı ▼D (Düşüş Uyumsuzluğu):** Fiyat daha yüksek tepe yaparken osilatör daha düşük tepe yapar. Bu, alım gücünün tükendiğini ve potansiyel bir aşağı dönüşü işaret eder.
-
-    #### 🎯 İndikatör Mantığı (Emniyet Kemeriniz)
-    * **KAMA Hızı:** Değerini düşürseniz fiyatı daha yakından izler, artırırsanız ana trendi gösterir.
-    * **Trend Çarpanı:** Değerini 1.5 gibi seviyelere düşürürseniz 'AL/SAT' sinyalleri çok daha erken gelir.
-    * **Osilatör Periyodu:** Divergence hesaplamasının RSI periyodunu belirler. Düşük değer daha hassas, yüksek değer daha az gürültülüdür.
-    * **SMA:** Basit hareketli ortalama. İki farklı SMA seçerek kısa (örn: 20) ve uzun (örn: 50) dönem trendlerini karşılaştırabilirsiniz. Kısa SMA, uzun SMA'yı yukarı kestiğinde alım gücü artıyor demektir.
-    * **Bollinger Bands:** Fiyatın volatilite bandını gösterir. Bantlar daralırsa büyük hareket beklenir. BB Periyodu hareketli ortalamanın kaç periyot üzerinden hesaplanacağını belirler. Artarsa uzun vadeli trend görülür ama erken sinyal kaçabilir. Azalırsa yanlış sinyal artar. BB Standart Sapma bantların ortalamanın ne kadar uzağına çizileceğini belirler. Artarsa Sinyaller azalır ama gelen sinyaller daha güçlü olur. Azalırsa yanlış sinyal artar.
-    * **Ichimoku Cloud:** Bulut (Kumo) destek/direnç, Tenkan/Kijun kesişmeleri sinyal üretir.
-    #### 📈 Divergence Osilatörü ve Hacim Okuma
-    * **Yeşil Çizgi (Momentum):** RSI'ın sıfır merkezli hali. Sıfırın üstü yükseliş bölgesi, altı düşüş bölgesidir.
-    * **Kırmızı Çizgi (Sinyal):** Momentumun 9 periyotluk ortalaması. Yeşil çizgi kırmızıyı yukarı keserse alım, aşağı keserse satım sinyalidir.
-    * **Yeşil/Kırmızı Kesişme:** Yeşil çizgi kırmızının üzerindeyken histogram pozitiftir (alıcılar güçlü). Yeşil kırmızının altına düştüğünde histogram negatife döner (satıcılar güçlü).
-    * **Kırmızı Yatay Çizgiler (+20/+30 — Aşırı Alım):** Momentum bu bölgeye çıktığında fiyat aşırı alım bölgesindedir. Yeşil çizgi bu bölgede kırmızıyı aşağı keserse güçlü satım sinyalidir.
-    * **Yeşil Yatay Çizgiler (-20/-30 — Aşırı Satım):** Momentum bu bölgeye düştüğünde fiyat aşırı satım bölgesindedir. Yeşil çizgi bu bölgede kırmızıyı yukarı keserse güçlü alım sinyalidir.
-    * **Uyumsuzluk (Divergence) — Yalan Dedektörü:** Bu gösterge fiyatın söylediği ile gerçekte olan arasındaki çelişkiyi yakalar. Fiyat yeni tepe yapıyorsa ama momentum yapmıyorsa (▼D), "Bu yükseliş yalan, güç tükeniyor" der. Fiyat yeni dip yapıyorsa ama momentum yapmıyorsa (▲D), "Bu düşüş yalan, satıcılar zayıflıyor" der. Aşırı bölgelerde (+30 üstü veya -30 altı) oluşan uyumsuzluklar en güvenilir yalan tespitleridir.
-    * **VRVP (Hacim Profili):** Sağdaki barlar paranın en çok hangi fiyat seviyesinde maliyetlendiğini gösterir.
-    * **POC (Sarı Dikdörtgen):** Hacim profilindeki en uzun barın (en çok işlem gören fiyatın) olduğu seviyedir. Güçlü bir "mıknatıs" destek veya direnç görevi görür.
-    * **Fibonacci Seviyeleri:** Fiyatın matematiksel olarak destek/direnç bulabileceği önemli oranları (%23.6, %38.2, %50, %61.8, %78.6) gösterir.
-    #### 📐 SMA (Basit Hareketli Ortalama)
-    * **Trend Yönü:** Fiyat SMA'nın üzerindeyse yükseliş trendi, altındaysa düşüş trendi hakimdir.
-    * **Kesişme Sinyalleri:** Fiyat SMA'yı alttan yukarı keserse alım, üstten aşağı keserse satım sinyalidir.
-    * **Golden Cross / Death Cross:** Kısa SMA (örn: 50), uzun SMA'yı (örn: 200) yukarı keserse "Golden Cross" (güçlü alım), aşağı keserse "Death Cross" (güçlü satım) oluşur.
-    * **Periyot Seçimi:** Kısa periyot (10-20) kısa vadeli dalgalanmaları, uzun periyot (50-200) ana trendi gösterir.
-    #### 🎸 Bollinger Bands (Volatilite Bantları)
-    * **Aşırı Alım/Satım:** Fiyat üst banda yaklaşırsa aşırı alım bölgesi, alt banda yaklaşırsa aşırı satım bölgesidir.
-    * **Squeeze (Daralma):** Bantlar birbirine yaklaşırsa büyük bir kırılım hareketi yakındır. Kırılımın yönü trendi belirler.
-    * **Bant Dışı Dönüş:** Fiyat alt bandın dışına çıkıp tekrar içeri girerse potansiyel yukarı dönüş, üst bant için tersi geçerlidir.
-    * **Orta Bant (SMA):** Orta çizgi destek/direnç görevi görür. Fiyat orta bandın üzerinde kalıyorsa trend güçlüdür.
-    #### ☁️ Ichimoku Cloud (Bulut Sistemi)
-    * **Bulut (Kumo) Yorumu:** Fiyat bulutun üstündeyse yükseliş, altındaysa düşüş trendi hakimdir. Bulutun içindeyse kararsız bölgedir.
-    * **Tenkan/Kijun Kesişmesi:** Tenkan (mavi) Kijun'u (kırmızı) yukarı keserse alım sinyali, aşağı keserse satım sinyalidir.
-    * **Bulut Kalınlığı:** Kalın bulut güçlü destek/direnç anlamına gelir, ince bulut ise zayıf bariyerdir.
-    * **Chikou (Gecikmeli Çizgi):** Mor noktalı çizgi fiyatın 26 periyot gerisini gösterir. Fiyatın üzerindeyse trend güçlü, altındaysa trend zayıflıyor demektir.
-    #### ⏱ Zaman Dilimi ve Geçmiş Veri Limitleri
-    * **Seçenekler:** `15m`, `30m`, `1h`, `2h`, `4h`, `8h`, `1d`
-    * **Maksimum Geriye Dönük Süreler:**
-    * · **1m:** 7 gün
-    * · **2m / 5m / 15m / 30m / 90m:** 60 gün
-    * · **1h:** 730 gün
-    * · **2h / 4h / 8h:** 60 gün (1h veriden türetilir)
-    * · **1d:** Sınırsız
-    * · **1w:** Sınırsız
-
-    #### 🔍 Ticker (Sembol) Seçimi
-    * **Borsa İstanbul:** Sembolün sonuna `.IS` ekleyin. Örn: `THYAO.IS`, `ASELS.IS`, `TUPRS.IS`
-    * **Kripto:** Parite formatında yazın. Örn: `BTC-USD`, `ETH-USD`, `AVAX-USD`
-    * **ABD Hisseleri:** Direkt sembol yeterli. Örn: `AAPL`, `TSLA`, `MSFT`
-    * **Döviz / Emtia:** `EURUSD=X`, `GC=F` (Altın), `CL=F` (Petrol)
-
-    #### 📊 Temel Sinyaller (Legend Alt Bölümü)
-    * Grafik oluşturulduktan sonra sağdaki legend'ın altında her skor grubu için **puan/max** ve **%yüzde** gösterilir.
-    * **✔** koşul sağlandı, **✘** koşul sağlanmadı anlamına gelir.
-    * Skorlar yatırım tavsiyesi değildir; sadece teknik koşulların özetini sunar.
-    ---
-    *(Salih Rıdvan Yılmaz - sry@tahmin.ai)*
-    """)
+    st.info("Analiz yapmak için sol paneldeki 'Analizi Başlat' butonuna tıklayın.")
