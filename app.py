@@ -915,7 +915,7 @@ TREND_CARPAN = st.sidebar.slider("Trend Çarpanı",          1.0, 5.0, 2.0, 0.5)
 OSILATOR_PER = st.sidebar.slider("Divergence RSI Periyodu",7,  30,  14)           if show_stochrsi    else 14
 DIV_LOOKBACK = st.sidebar.slider("Divergence Lookback",    2,  20,  5)            if show_stochrsi    else 5
 HACIM_DETAY  = st.sidebar.slider("Hacim Detayı",           20, 100, 40)           if show_vrvp        else 40
-FIB_BAKIS    = st.sidebar.number_input("Fib Geriye Bakış", value=100)             if show_fib         else 100
+FIB_BAKIS    = st.sidebar.number_input("Fib Geriye Bakış", value=200)             if show_fib         else 200
 SMA_1_LEN    = st.sidebar.slider("SMA 1 Periyodu",         5,  200, 50)           if show_sma         else 50
 SMA_2_LEN    = st.sidebar.slider("SMA 2 Periyodu",         5,  400, 200)          if show_sma         else 200
 EMA_1_LEN    = st.sidebar.slider("EMA 1 Periyodu",         5,  200, 20)           if show_ema         else 20
